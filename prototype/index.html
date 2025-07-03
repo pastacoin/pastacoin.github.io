@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PastaCoin Web Prototype</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    header { background: #2e3a46; color: #fff; padding: 1rem; text-align: center; }
+    nav { background: #415465; color: #fff; padding: 0.5rem; display: flex; gap: 1rem; justify-content: center; }
+    nav a { color: #fff; text-decoration: none; }
+    #disclaimer { background: #ffc107; padding: 0.5rem; text-align: center; }
+    section { padding: 1rem; }
+  </style>
+  <script>
+    // Allow API base override via ?api=https://example.com
+    const params = new URLSearchParams(window.location.search);
+    window.API_BASE = params.get('api') || '';
+  </script>
+</head>
+<body>
+  <header>
+    <h1>PastaCoin Web Prototype</h1>
+  </header>
+  <div id="disclaimer">
+    This is an early prototype. The blockchain is reset frequently; transactions and balances are <strong>not permanent</strong>.
+  </div>
+  <nav>
+    <a href="#wallet">Wallet</a>
+    <a href="#create">Create Tx</a>
+    <a href="#validateB">Validate (State B)</a>
+    <a href="#validateC">Confirm (State C)</a>
+    <a href="#mempool">Mempool</a>
+    <a href="#blockchain">Blockchain</a>
+  </nav>
+
+  <main id="app">
+    <!-- Dynamic content renders here -->
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html> 
