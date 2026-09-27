@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PaStaCoin stability simulations</title>
+<meta name="description" content="Does the PaSta average-transaction-size rule hold purchasing power? Simulation results from PastaTester.">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #ffffff; --surface: #fcfcfb;
+    --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --anchored: #2a78d6; --anchored-2: #104281; --trend: #eb6834; --trend-2: #1baf7a; --null: #898781; --seq-light: #86b6ef;
+    --wash: #f4f4f1; --link: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19;
+      --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --anchored: #3987e5; --anchored-2: #86b6ef; --trend: #d95926; --trend-2: #199e70; --null: #898781; --seq-light: #1c5cab;
+      --wash: #232321; --link: #6da7ec;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --anchored: #3987e5; --anchored-2: #86b6ef; --trend: #d95926; --trend-2: #199e70; --null: #898781; --seq-light: #1c5cab;
+    --wash: #232321; --link: #6da7ec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace; line-height: 1.55; }
+  a { color: var(--link); }
+  nav { border-bottom: 1px solid var(--border); padding: 12px 16px; }
+  nav .wrap { display: flex; align-items: center; gap: 10px; }
+  nav img { width: 36px; height: 36px; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  main { padding: 0 16px 64px; }
+  h1 { font-size: clamp(26px, 4.5vw, 40px); font-weight: 900; margin: 40px 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 20px; margin: 48px 0 8px; }
+  h3 { font-size: 15px; margin: 8px 0 4px; font-weight: 600; }
+  p, li { color: var(--ink2); font-size: 15px; max-width: 78ch; }
+  p.lead { font-size: 17px; color: var(--ink); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 24px 0 8px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .kpi .label { font-size: 12px; color: var(--muted); }
+  .kpi .value { font-size: 30px; font-weight: 600; margin: 2px 0; }
+  .kpi .note { font-size: 12px; color: var(--ink2); }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--ink2); margin: 12px 0 4px; }
+  .legend span::before { content: ""; display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; background: currentColor; }
+  .legend .anchored::before { background: var(--anchored); } .legend .trend::before { background: var(--trend); } .legend .null::before { background: var(--null); }
+  .legend .anchored2::before { background: var(--anchored-2); } .legend .trend2::before { background: var(--trend-2); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 8px; }
+  .card h3 { margin: 0 0 6px; }
+  .card .sub { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+  .chart { position: relative; height: 220px; }
+  .chart.tall { height: 320px; }
+  .callout { background: var(--wash); border-left: 3px solid var(--anchored); padding: 12px 16px; margin: 20px 0; border-radius: 4px; }
+  .callout.bad { border-left-color: var(--trend); }
+  details { margin: 12px 0; }
+  summary { cursor: pointer; color: var(--ink2); font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 10px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; color: var(--ink2); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  code, pre { background: var(--wash); border-radius: 4px; }
+  code { padding: 1px 5px; font-size: 13px; }
+  pre { padding: 12px 14px; overflow-x: auto; font-size: 13px; color: var(--ink2); }
+  footer { border-top: 1px solid var(--border); padding: 20px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a href="/"><img src="https://avatars.githubusercontent.com/u/198161947?s=200&v=4" alt="PaStaCoin logo"></a>
+  <a href="/" style="text-decoration:none;color:var(--ink);font-size:18px">PaStaCoin</a>
+  <span style="color:var(--muted)">/ simulation results</span>
+</div></nav>
+
+<main><div class="wrap">
+  <h1>Does the average transaction size hold purchasing power?</h1>
+  <p class="lead">PaSta's stability idea is that the network mints or burns a little coin in every transaction to keep the average transaction size constant, and that this keeps the coin's purchasing power constant. These are the first results from PastaTester, a toy economy built to test that claim before any of it goes into the node.</p>
+  <p>Generated <span id="gen-date"></span> from <a href="https://github.com/pastacoin/pastacoin">pastacoin/pastacoin</a> commit <code id="gen-commit"></code>. Every number is reproducible with one command (see the bottom of the page). The full memo is <a href="https://github.com/pastacoin/pastacoin/blob/main/docs/SIMULATION-RESULTS.md">docs/SIMULATION-RESULTS.md</a>.</p>
+
+  <div class="kpis" id="kpis"></div>
+
+  <h2>1. The toy economy</h2>
+  <p>200 agents hold PASTA and buy goods from each other. Goods have hidden "real" prices that nobody in the economy can see; the PASTA price of a good follows the quantity theory of money, <code>p = M / (k &middot; Q)</code>: total money <em>M</em> divided by money demand <em>k</em> (how much people hoard) and real trade volume <em>Q</em>. The charts below plot <em>p</em>, the PASTA price level, relative to its value just before a shock. A flat line at 1.0 means purchasing power was held.</p>
+  <p>Three policies see every transaction amount and decide how much to mint (paid to the seller on top of the amount) or burn (taken from what the seller receives):</p>
+  <ul>
+    <li><strong>No controller</strong>. Money supply fixed. The baseline.</li>
+    <li><strong>Whitepaper rule (trend)</strong>. Compares a fast moving average of transaction size with a slow one. Mints only into above-average transactions when the average is falling, burns only from below-average ones when it is rising.</li>
+    <li><strong>Anchored to launch average</strong>. The same asymmetric rule, but the reference is the average transaction size at launch instead of a moving one.</li>
+  </ul>
+
+  <h2>2. What happens after a shock</h2>
+  <p>Each panel applies one change to the hidden economy at step 2000 (vertical line) and shows the price level under the three policies. Hover for values.</p>
+  <div class="legend"><span class="null">No controller</span><span class="trend">Whitepaper rule (trend)</span><span class="anchored">Anchored to launch average</span></div>
+  <div class="grid" id="shock-grid"></div>
+
+  <div class="callout">
+    <strong>What works.</strong> With an anchor, the rule does what the whitepaper claims for monetary shocks. Hoarding, dishoarding, real growth and a doubling of users were all pulled back to within a few percent of the pre-shock price level, and the money supply grew with the economy (about +100% when the real economy doubled).
+  </div>
+  <div class="callout bad">
+    <strong>What does not.</strong> The trend rule read literally can only slow a change. Once the slow average catches up with the new level it stops, so it never restores purchasing power. With no shock at all both rules drift upward (trend about +11%, anchored at gain 0.1 about +8% after warm-up, +19% from launch). Two causes, both real: adjustments ride on the transaction they attach to, and the controller only sees transactions that actually happen, so unaffordable large purchases that never execute pull the observed average below the anchor.
+  </div>
+
+  <h2>3. Final price change by shock</h2>
+  <p>The same runs, summarised. Zero is perfect. The last two groups are the ones that break the anchored rule.</p>
+  <div class="card"><div class="chart tall"><canvas id="drift-bars" role="img" aria-label="Grouped bar chart of final price level change per shock and controller"></canvas></div></div>
+  <details><summary>Table view of this chart</summary><div id="drift-table"></div></details>
+
+  <h2>4. What breaks when transactions get larger</h2>
+  <p>Suppose people keep spending the same amount in total but do it in fewer, larger transactions (installments becoming lump sums, or purchases being batched). Purchasing power has not changed at all. The average transaction size has. The controller cannot tell the difference and reads it as inflation.</p>
+  <div class="legend"><span class="null">No controller</span><span class="trend">Whitepaper rule (trend)</span><span class="anchored">Anchored, gain 0.1</span><span class="anchored2">Anchored, gain 0.5</span></div>
+  <div class="card">
+    <h3>Self-inflicted price change vs. transaction size factor</h3>
+    <p class="sub">Shock at step 2000; total real spending unchanged; money demand k = <span id="sweep-k"></span> so agents can afford the larger purchases.</p>
+    <div class="chart tall"><canvas id="granularity" role="img" aria-label="Line chart of price level change versus transaction size factor for each controller"></canvas></div>
+  </div>
+  <details><summary>Table view of this chart</summary><div id="granularity-table"></div></details>
+  <div class="callout bad">
+    <strong>This is the central open problem.</strong> Doubling transaction size with nothing else changing makes the anchored controller burn about a third of the money supply, and more at higher gain. The whitepaper argues that economy-wide shifts in transaction granularity are unlikely; that may be true, but the mechanism has no defence if it happens. The next experiments test signals that separate "prices rose" from "people batch purchases" (issue <a href="https://github.com/pastacoin/pastacoin/issues/27">#27</a>).
+  </div>
+
+  <h2>5. Gain: speed against churn</h2>
+  <p>The anchored rule's gain sets how hard it pushes per transaction. Under the hoarding shock, low gain recovers slowly with almost no burning; high gain recovers fast but mints and burns a lot of coin along the way.</p>
+  <div class="grid">
+    <div class="card"><h3>Steps to get back within 5%</h3><p class="sub">after the hoarding shock</p><div class="chart"><canvas id="gain-recovery" role="img" aria-label="Bar chart of recovery steps by gain"></canvas></div></div>
+    <div class="card"><h3>Total coin minted and burned</h3><p class="sub">over the whole run</p><div class="chart"><canvas id="gain-churn" role="img" aria-label="Stacked bar chart of minted and burned coin by gain"></canvas></div></div>
+  </div>
+  <details><summary>Table view of these charts</summary><div id="gain-table"></div></details>
+
+  <h2>6. Doing nothing well: bias with no shock</h2>
+  <p>A controller should sit still when nothing is happening. The whitepaper's asymmetric rule inflates steadily, a symmetric variant deflates hard, and the anchored rule climbs about 19% in the first 1500 steps and then flattens. Two mechanisms: adjustments are sized as a fraction of the transaction they ride on, so mints (attached to large transactions) and burns (attached to small ones) do not balance; and the controller only sees executed transactions, so large purchases that are skipped as unaffordable make the observed average read low until enough coin has been minted to close the gap. Both are tracked as issue <a href="https://github.com/pastacoin/pastacoin/issues/28">#28</a>.</p>
+  <div class="legend"><span class="trend">Trend, asymmetric (whitepaper)</span><span class="trend2">Trend, symmetric</span><span class="anchored">Anchored, gain 0.1</span></div>
+  <div class="card"><div class="chart tall"><canvas id="bias" role="img" aria-label="Line chart of price level over time with no shock for three controllers"></canvas></div></div>
+
+  <h2>7. Limitations</h2>
+  <ul>
+    <li>The price level is a closed-form quantity-theory expression, not an emergent market price. No expectations, no interest, no external exchange rate.</li>
+    <li>With the default money demand, agents hold about two purchases' worth of coin, so roughly 45% of attempted purchases are unaffordable and skipped. This biases observed averages. The granularity sweep uses a higher money demand for that reason.</li>
+    <li>Sellers receive the mint or burn; buyers always pay the face amount. The split is a design choice.</li>
+    <li>No adversarial agents yet (self-dealing, wash trading). Issue <a href="https://github.com/pastacoin/pastacoin/issues/13">#13</a>.</li>
+  </ul>
+
+  <h2>8. Reproduce</h2>
+  <pre>git clone https://github.com/pastacoin/pastacoin && cd pastacoin
+python -m venv .venv && .venv/Scripts/pip install -e ".[dev]" matplotlib
+.venv/Scripts/python -m pasta.sim.report --json results.json --figures figures
+.venv/Scripts/python -m pasta.sim --compare --shock 2000:money_demand:1.5     # one experiment</pre>
+</div></main>
+
+<footer>PaStaCoin &middot; <a href="/">home</a> &middot; <a href="https://github.com/pastacoin">GitHub</a></footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  const R = window.PASTA_RESULTS;
+  if (!R) { document.getElementById('shock-grid').textContent = 'Results data failed to load.'; return; }
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const C = { anchored: css('--anchored'), anchored2: css('--anchored-2'), trend: css('--trend'), trend2: css('--trend-2'), null: css('--null'),
+              ink: css('--ink'), ink2: css('--ink2'), muted: css('--muted'), grid: css('--grid'), axis: css('--axis'), surface: css('--surface') };
+  const LABEL = R.config.policies;
+  const fmtPct = (v) => (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+  const text = (el, s) => { el.textContent = s; return el; };
+
+  document.getElementById('gen-date').textContent = R.meta.generated;
+  document.getElementById('gen-commit').textContent = R.meta.commit;
+  document.getElementById('sweep-k').textContent = R.granularity_sweep.money_demand;
+
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = C.muted;
+  Chart.defaults.animation = false;
+  Chart.defaults.plugins.legend.display = false;
+  Chart.defaults.plugins.tooltip.backgroundColor = C.surface;
+  Chart.defaults.plugins.tooltip.titleColor = C.ink;
+  Chart.defaults.plugins.tooltip.bodyColor = C.ink2;
+  Chart.defaults.plugins.tooltip.borderColor = C.axis;
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
+  Chart.defaults.plugins.tooltip.padding = 8;
+  Chart.defaults.plugins.tooltip.boxPadding = 4;
+  Chart.defaults.elements.line.borderWidth = 2;
+  Chart.defaults.elements.line.borderJoinStyle = 'round';
+  Chart.defaults.elements.line.borderCapStyle = 'round';
+  Chart.defaults.elements.point.radius = 0;
+  Chart.defaults.elements.point.hoverRadius = 5;
+  Chart.defaults.elements.point.hoverBorderWidth = 2;
+  Chart.defaults.elements.point.hoverBorderColor = C.surface;
+  const axisBase = { grid: { color: C.grid, lineWidth: 1, drawTicks: false }, border: { color: C.axis, width: 1 }, ticks: { color: C.muted, padding: 6 } };
+  const xAxis = (title) => ({ ...axisBase, grid: { display: false }, title: { display: !!title, text: title, color: C.ink2 } });
+  const yAxis = (title, extra) => ({ ...axisBase, title: { display: !!title, text: title, color: C.ink2 }, ...(extra || {}) });
+
+  // Shock line: a vertical hairline at the shock step
+  const shockLine = { id: 'shockLine', afterDraw(chart, args, opts) {
+    if (opts.step == null) return;
+    const x = chart.scales.x.getPixelForValue(opts.step); const a = chart.chartArea; const ctx = chart.ctx;
+    ctx.save(); ctx.strokeStyle = C.axis; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, a.top); ctx.lineTo(x, a.bottom); ctx.stroke(); ctx.restore();
+  } };
+  // Crosshair for line charts (index mode tooltip already lists all series)
+  const crosshair = { id: 'crosshair', afterDraw(chart) {
+    const act = chart.tooltip && chart.tooltip.getActiveElements ? chart.tooltip.getActiveElements() : [];
+    if (!act.length || chart.config.type !== 'line') return;
+    const x = act[0].element.x; const a = chart.chartArea; const ctx = chart.ctx;
+    ctx.save(); ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, a.top); ctx.lineTo(x, a.bottom); ctx.stroke(); ctx.restore();
+  } };
+  Chart.register(shockLine, crosshair);
+
+  const lineChart = (canvas, datasets, opts) => new Chart(canvas, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, parsing: false, normalized: true,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: { shockLine: { step: opts.shockStep }, tooltip: { callbacks: {
+        title: (items) => 'step ' + items[0].parsed.x,
+        label: (item) => ' ' + item.dataset.label + ': ' + item.parsed.y.toFixed(3) } } },
+      scales: { x: { ...xAxis(opts.xTitle), type: 'linear', min: 0, max: R.config.steps, ticks: { ...axisBase.ticks, stepSize: 1000 } },
+                y: yAxis(opts.yTitle, { min: opts.yMin, max: opts.yMax, ticks: { ...axisBase.ticks, callback: (v) => v.toFixed(1) } }) }
+    }
+  });
+  const toXY = (s, key) => s.step.map((x, i) => ({ x, y: s[key][i] }));
+
+  // ---- 2. shock small multiples
+  const grid = document.getElementById('shock-grid');
+  const order = ['null', 'trend', 'anchored'];
+  for (const panel of R.shocks) {
+    const card = document.createElement('div'); card.className = 'card';
+    const h = text(document.createElement('h3'), panel.label);
+    const SHORT = { null: 'none', trend: 'trend', anchored: 'anchored' };
+    const sub = text(document.createElement('p'), 'Final change: ' + order.map(p => SHORT[p] + ' ' + fmtPct(panel.runs[p].drift_pct)).join(' · '));
+    sub.className = 'sub';
+    const holder = document.createElement('div'); holder.className = 'chart';
+    const canvas = document.createElement('canvas'); canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', 'Price level over time under ' + panel.label);
+    holder.appendChild(canvas); card.append(h, sub, holder); grid.appendChild(card);
+    lineChart(canvas, order.map(p => ({ label: LABEL[p], data: toXY(panel.runs[p].series, 'price_rel'), borderColor: C[p], backgroundColor: C[p] })),
+      { shockStep: panel.shock_step, yMin: 0.3, yMax: 2.2, yTitle: 'price level (pre-shock = 1)' });
+  }
+
+  // ---- KPIs
+  const byKey = Object.fromEntries(R.shocks.map(s => [s.key, s]));
+  const kpis = [
+    ['Hoarding shock, no controller', fmtPct(byKey.hoarding.runs.null.drift_pct), 'price level change'],
+    ['Hoarding shock, whitepaper trend rule', fmtPct(byKey.hoarding.runs.trend.drift_pct), 'only damps the fall'],
+    ['Hoarding shock, anchored rule', fmtPct(byKey.hoarding.runs.anchored.drift_pct), 'purchasing power restored'],
+    ['Transactions 2x larger, anchored rule', fmtPct(byKey.granularity_up.runs.anchored.drift_pct), 'self-inflicted; nothing real changed'],
+  ];
+  const kwrap = document.getElementById('kpis');
+  for (const [label, value, note] of kpis) {
+    const d = document.createElement('div'); d.className = 'kpi';
+    d.append(text(Object.assign(document.createElement('div'), { className: 'label' }), label),
+             text(Object.assign(document.createElement('div'), { className: 'value' }), value),
+             text(Object.assign(document.createElement('div'), { className: 'note' }), note));
+    kwrap.appendChild(d);
+  }
+
+  // ---- 3. drift bars
+  const barBase = { borderRadius: { topLeft: 4, topRight: 4, bottomLeft: 4, bottomRight: 4 }, borderSkipped: false, maxBarThickness: 22, categoryPercentage: 0.7, barPercentage: 0.85 };
+  new Chart(document.getElementById('drift-bars'), {
+    type: 'bar',
+    data: { labels: R.shocks.map(s => s.label.split(':')[0]),
+      datasets: order.map(p => ({ ...barBase, label: LABEL[p], data: R.shocks.map(s => s.runs[p].drift_pct), backgroundColor: C[p] })) },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'bottom', labels: { color: C.ink2, boxWidth: 12, boxHeight: 12, usePointStyle: true, pointStyle: 'rect' } },
+                 tooltip: { callbacks: { label: (i) => ' ' + i.dataset.label + ': ' + fmtPct(i.parsed.y) } } },
+      scales: { x: xAxis(), y: yAxis('price level change from step 500 to 5000, %', { ticks: { ...axisBase.ticks, callback: (v) => (v > 0 ? '+' : '') + v + '%' } }) } }
+  });
+  const table = (host, head, rows) => {
+    const t = document.createElement('table'); const tr = document.createElement('tr');
+    head.forEach(h => tr.appendChild(text(document.createElement('th'), h))); t.appendChild(tr);
+    rows.forEach(r => { const row = document.createElement('tr'); r.forEach(c => row.appendChild(text(document.createElement('td'), c))); t.appendChild(row); });
+    host.appendChild(t);
+  };
+  table(document.getElementById('drift-table'), ['Shock', ...order.map(p => LABEL[p] + ' drift'), 'Anchored money supply change', 'Anchored recovery steps'],
+    R.shocks.map(s => [s.label, ...order.map(p => fmtPct(s.runs[p].drift_pct)), fmtPct(s.runs.anchored.money_change_pct), s.runs.anchored.recovery_steps == null ? 'none' : String(s.runs.anchored.recovery_steps)]));
+
+  // ---- 4. granularity sweep
+  const sw = R.granularity_sweep.rows;
+  const sweepSeries = [['null', LABEL.null, C.null], ['trend', LABEL.trend, C.trend], ['anchored_g0.1', 'Anchored, gain 0.1', C.anchored], ['anchored_g0.5', 'Anchored, gain 0.5', C.anchored2]];
+  new Chart(document.getElementById('granularity'), {
+    type: 'line',
+    data: { datasets: sweepSeries.map(([k, label, color]) => ({ label, data: sw.map(r => ({ x: r.factor, y: r[k].drift_pct })), borderColor: color, backgroundColor: color, pointRadius: 4, pointBorderColor: C.surface, pointBorderWidth: 2 })) },
+    options: { responsive: true, maintainAspectRatio: false, parsing: false,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: { tooltip: { callbacks: { title: (it) => 'transactions ' + it[0].parsed.x + 'x larger', label: (i) => ' ' + i.dataset.label + ': ' + fmtPct(i.parsed.y) } } },
+      scales: { x: { ...xAxis('transaction size factor (same total spending)'), type: 'linear', min: 1, max: 4, ticks: { ...axisBase.ticks, stepSize: 0.5 } },
+                y: yAxis('price level change, %', { ticks: { ...axisBase.ticks, callback: (v) => (v > 0 ? '+' : '') + v + '%' } }) } }
+  });
+  table(document.getElementById('granularity-table'), ['Size factor', ...sweepSeries.map(s => s[1])],
+    sw.map(r => [r.factor + 'x', ...sweepSeries.map(s => fmtPct(r[s[0]].drift_pct))]));
+
+  // ---- 5. gain
+  const g = R.gain_sweep;
+  new Chart(document.getElementById('gain-recovery'), {
+    type: 'bar',
+    data: { labels: g.map(r => 'gain ' + r.gain), datasets: [{ ...barBase, label: 'steps to recover', data: g.map(r => r.recovery_steps == null ? 0 : r.recovery_steps), backgroundColor: C.anchored }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { tooltip: { callbacks: { label: (i) => g[i.dataIndex].recovery_steps == null ? ' did not recover within the run' : ' ' + i.parsed.y + ' steps' } } },
+      scales: { x: xAxis(), y: yAxis('steps') } }
+  });
+  new Chart(document.getElementById('gain-churn'), {
+    type: 'bar',
+    data: { labels: g.map(r => 'gain ' + r.gain), datasets: [
+      { ...barBase, label: 'minted', data: g.map(r => r.minted), backgroundColor: css('--seq-light') },
+      { ...barBase, label: 'burned', data: g.map(r => r.burned), backgroundColor: C.anchored } ] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'bottom', labels: { color: C.ink2, boxWidth: 12, boxHeight: 12, usePointStyle: true, pointStyle: 'rect' } },
+                 tooltip: { callbacks: { label: (i) => ' ' + i.dataset.label + ': ' + Math.round(i.parsed.y).toLocaleString() + ' PASTA' } } },
+      scales: { x: { ...xAxis(), stacked: true }, y: { ...yAxis('PASTA'), stacked: true } } }
+  });
+  table(document.getElementById('gain-table'), ['Gain', 'Final drift', 'Recovery steps', 'Minted', 'Burned'],
+    g.map(r => [String(r.gain), fmtPct(r.drift_pct), r.recovery_steps == null ? 'none' : String(r.recovery_steps), Math.round(r.minted).toLocaleString(), Math.round(r.burned).toLocaleString()]));
+
+  // ---- 6. bias
+  const b = R.bias;
+  lineChart(document.getElementById('bias'), [
+    { label: 'Trend, asymmetric (whitepaper)', data: toXY(b.trend_asymmetric.series, 'price_rel'), borderColor: C.trend, backgroundColor: C.trend },
+    { label: 'Trend, symmetric', data: toXY(b.trend_symmetric.series, 'price_rel'), borderColor: C.trend2, backgroundColor: C.trend2 },
+    { label: 'Anchored, gain 0.1', data: toXY(b.anchored.series, 'price_rel'), borderColor: C.anchored, backgroundColor: C.anchored },
+  ], { shockStep: null, yMin: 0.4, yMax: 1.3, yTitle: 'price level (start = 1)', xTitle: 'step' });
+})();
+</script>
+</body>
+</html>
