@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bitcoin fixed-supply demonstration</title>
+<meta name="description" content="A coarse demonstration with real chain data: as a fixed-supply economy grows, each transaction becomes a smaller slice of the supply. With corrections for minted coins and block-space saturation.">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #ffffff; --surface: #fcfcfb;
+    --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --blue: #2a78d6; --blue-dark: #104281; --orange: #eb6834; --gray: #898781;
+    --wash: #f4f4f1; --link: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19;
+      --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --blue: #3987e5; --blue-dark: #86b6ef; --orange: #d95926; --gray: #898781;
+      --wash: #232321; --link: #6da7ec;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --blue: #3987e5; --blue-dark: #86b6ef; --orange: #d95926; --gray: #898781;
+    --wash: #232321; --link: #6da7ec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace; line-height: 1.55; }
+  a { color: var(--link); }
+  nav { border-bottom: 1px solid var(--border); padding: 12px 16px; }
+  nav .wrap { display: flex; align-items: center; gap: 10px; }
+  nav img { width: 36px; height: 36px; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  main { padding: 0 16px 64px; }
+  h1 { font-size: clamp(26px, 4.5vw, 40px); font-weight: 900; margin: 40px 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 20px; margin: 48px 0 8px; }
+  h3 { font-size: 15px; margin: 8px 0 4px; font-weight: 600; }
+  p, li { color: var(--ink2); font-size: 15px; max-width: 78ch; }
+  p.lead { font-size: 17px; color: var(--ink); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 24px 0 8px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .kpi .label { font-size: 12px; color: var(--muted); }
+  .kpi .value { font-size: 30px; font-weight: 600; margin: 2px 0; }
+  .kpi .note { font-size: 12px; color: var(--ink2); }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--ink2); margin: 12px 0 4px; }
+  .legend span::before { content: ""; display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; background: currentColor; }
+  .legend .blue::before { background: var(--blue); } .legend .orange::before { background: var(--orange); } .legend .gray::before { background: var(--gray); } .legend .bluedark::before { background: var(--blue-dark); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 8px; }
+  .card h3 { margin: 0 0 6px; }
+  .card .sub { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+  .chart { position: relative; height: 220px; }
+  .chart.tall { height: 340px; }
+  .callout { background: var(--wash); border-left: 3px solid var(--blue); padding: 12px 16px; margin: 20px 0; border-radius: 4px; }
+  .callout.bad { border-left-color: var(--orange); }
+  details { margin: 12px 0; }
+  summary { cursor: pointer; color: var(--ink2); font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 10px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; color: var(--ink2); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  code, pre { background: var(--wash); border-radius: 4px; }
+  code { padding: 1px 5px; font-size: 13px; }
+  pre { padding: 12px 14px; overflow-x: auto; font-size: 13px; color: var(--ink2); }
+  footer { border-top: 1px solid var(--border); padding: 20px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a href="/"><img src="https://avatars.githubusercontent.com/u/198161947?s=200&v=4" alt="PaStaCoin logo"></a>
+  <a href="/" style="text-decoration:none;color:var(--ink);font-size:18px">PaStaCoin</a>
+  <span style="color:var(--muted)">/ <a href="/results/">simulation results</a> / bitcoin</span>
+</div></nav>
+
+<main><div class="wrap">
+  <h1>A fixed supply in a growing economy: the Bitcoin demonstration</h1>
+  <p class="lead">The PaSta whitepaper argues that when a currency's supply is fixed and its economy grows, each transaction has to become a smaller slice of the supply. Bitcoin is the natural test case. This page rebuilds that chart from public chain data and corrects two things the original analysis skipped: newly minted coins, and what happened to the <em>real</em> size of a transaction.</p>
+  <p>Data through <span id="data-day"></span> from the <a href="https://www.blockchain.com/explorer/charts">blockchain.com charts API</a> (daily: price, confirmed transactions, estimated transaction volume with change outputs removed, coins in circulation, unique addresses, fees). Monthly medians of daily values from 2011. Generated <span id="gen-date"></span>, commit <code id="gen-commit"></code>. Reproduce with the commands at the bottom.</p>
+
+  <div class="kpis" id="kpis"></div>
+
+  <h2>1. The coarse model</h2>
+  <p>Take a coin with a fixed supply. Each person wants to hold about the same real amount of money and makes about the same real purchases. If the number of people doubles, the same coins have to serve twice the real economy, so each coin must buy twice as much: price per coin doubles and the number of coins in a typical transaction halves. Price goes up with users; coins per transaction go down as one over users. That is all the model says.</p>
+  <div class="legend"><span class="gray">Price per coin</span><span class="blue">Coins per transaction</span></div>
+  <div class="card"><h3>Toy: fixed supply, users grow 1x to 100x</h3><p class="sub">both axes logarithmic; everything relative to the start</p><div class="chart"><canvas id="toy" role="img" aria-label="Line chart of the toy model: price rises with users, coins per transaction fall as one over users"></canvas></div></div>
+
+  <h2>2. Bitcoin, raw: price up, coins per transaction down</h2>
+  <p>This is the whitepaper's chart. Price on top; below it the average transaction size in BTC, computed as estimated transaction volume divided by the number of transactions (estimated volume strips out change outputs, which would otherwise inflate every figure).</p>
+  <div class="grid">
+    <div class="card"><h3>Bitcoin price, USD</h3><p class="sub">monthly median, log scale</p><div class="chart"><canvas id="price" role="img" aria-label="Bitcoin price over time, log scale"></canvas></div></div>
+    <div class="card"><h3>Average transaction size, BTC</h3><p class="sub">estimated volume / transactions, log scale</p><div class="chart"><canvas id="txbtc" role="img" aria-label="Average transaction size in BTC over time, log scale"></canvas></div></div>
+  </div>
+
+  <h2>3. Correction one: minted coins</h2>
+  <p>Bitcoin's supply is not fixed yet. It roughly tripled over this period (<span id="supply-first"></span>M to <span id="supply-last"></span>M coins), so part of any fall in "BTC per transaction" is just each coin being a smaller share of a bigger pile. The clean quantity is the share of circulating supply moved per transaction. Adjusting makes the fall larger, not smaller, so the original chart understated the effect, as the whitepaper suspected.</p>
+  <div class="legend"><span class="orange">BTC per transaction (raw)</span><span class="blue">Share of supply per transaction (adjusted)</span></div>
+  <div class="card"><h3>Raw vs. supply-adjusted transaction size</h3><p class="sub">both indexed to January 2011 = 1, log scale</p><div class="chart tall"><canvas id="adjusted" role="img" aria-label="Raw and supply-adjusted transaction size, indexed to 2011"></canvas></div></div>
+
+  <h2>4. Does the toy fit? Slice of supply against number of users</h2>
+  <p>If the coarse model is right, the share of supply per transaction should fall as one over the number of users: a straight line of slope minus one on log-log axes. Using daily active addresses as the user count, that is what the early years show. After 2017 the relationship disappears, because active addresses stopped growing while the economy kept growing: block space ran out and activity moved to exchanges and off-chain systems.</p>
+  <div class="legend"><span class="blue">2011 to 2016, fees near zero</span><span class="orange">2017 onward, block space scarce</span><span class="gray">Toy: slope exactly minus one</span><span class="bluedark">Fit to all data</span></div>
+  <div class="card"><h3>Share of supply per transaction vs. active addresses</h3><p class="sub">monthly medians, log-log</p><div class="chart tall"><canvas id="scatter" role="img" aria-label="Scatter of share of supply per transaction against active addresses with fitted lines"></canvas></div></div>
+  <details><summary>Elasticities by era (slope of log y on log x; minus one means exactly inverse)</summary><div id="era-table"></div></details>
+
+  <h2>5. Correction two: what a transaction was actually worth</h2>
+  <p>The whitepaper reads the falling BTC size as transactions tracking purchasing power. If that were the whole story, the USD size of an average transaction would be roughly flat. It is not. It rose from tens of dollars to thousands. Coins per transaction fell about 40% as fast as the price rose (elasticity <span id="e-btc"></span>), and the other 60% shows up as much larger real transactions (elasticity <span id="e-usd"></span>). The fee chart says why: once block space became scarce, small payments were priced off the chain and the on-chain average came to reflect large transfers between exchanges and large holders.</p>
+  <div class="grid">
+    <div class="card"><h3>Average transaction size, USD</h3><p class="sub">monthly median, log scale</p><div class="chart"><canvas id="txusd" role="img" aria-label="Average transaction size in USD over time, log scale"></canvas></div></div>
+    <div class="card"><h3>Fee per transaction, USD</h3><p class="sub">monthly median, log scale</p><div class="chart"><canvas id="fees" role="img" aria-label="Fee per transaction in USD over time, log scale"></canvas></div></div>
+  </div>
+  <details><summary>Table view: yearly medians</summary><div id="year-table"></div></details>
+
+  <h2>6. What this means for PaSta</h2>
+  <div class="callout">
+    <strong>Supported.</strong> Fixed supply plus a growing economy does shrink the coin size of transactions, and the effect is stronger once minted coins are accounted for. In the years before block space ran out, the share of supply per transaction fell almost exactly as one over the number of users, which is the coarse model's prediction. The deflation signal the whitepaper wants to read is real.
+  </div>
+  <div class="callout bad">
+    <strong>Not supported.</strong> Average transaction size was not a clean gauge of purchasing power. The real value of an on-chain transaction moved by two orders of magnitude for reasons that had nothing to do with the coin's value: fee pressure, batching, and the network's shift to a settlement role. This is the same confound the <a href="/results/">simulator</a> flags as the granularity problem. A payments coin without a block-space cap would suffer less of it, but Bitcoin's history cannot show how much less.
+  </div>
+  <p>Two caveats on the data itself. Only the mean transaction size is available for free; the median would be far less dominated by exchange and whale transfers and is worth buying or computing from a full node. And "estimated transaction volume" is a heuristic for removing change outputs, so the absolute levels are approximate even though the trends are robust.</p>
+
+  <h2>7. Reproduce</h2>
+  <pre>git clone https://github.com/pastacoin/pastacoin && cd pastacoin
+python -m venv .venv && .venv/Scripts/pip install -e ".[dev,report]"
+.venv/Scripts/python -m pasta.analysis.bitcoin_report --figures figures        # uses the committed data/bitcoin-daily.csv
+.venv/Scripts/python -m pasta.analysis.bitcoin_report --fetch --figures figures  # refresh from blockchain.com first</pre>
+</div></main>
+
+<footer>PaStaCoin &middot; <a href="/">home</a> &middot; <a href="/results/">simulation results</a> &middot; <a href="https://github.com/pastacoin">GitHub</a></footer>
+
+<script src="bitcoin-data.js"></script>
+<script>
+(function () {
+  const D = window.PASTA_BITCOIN;
+  if (!D) { document.getElementById('kpis').textContent = 'Data failed to load.'; return; }
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const C = { blue: css('--blue'), blueDark: css('--blue-dark'), orange: css('--orange'), gray: css('--gray'),
+              ink: css('--ink'), ink2: css('--ink2'), muted: css('--muted'), grid: css('--grid'), axis: css('--axis'), surface: css('--surface') };
+  const text = (el, s) => { el.textContent = s; return el; };
+  const mon = D.monthly;
+  const toDate = (m) => new Date(m + '-01T00:00:00Z').getTime();
+  const fmtX = (v) => (v >= 1000 ? Math.round(v).toLocaleString() : v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toPrecision(2));
+  const eraAll = D.eras.find(e => e.from === '2011' && e.to === '2026');
+
+  document.getElementById('data-day').textContent = D.meta.data_last_day;
+  document.getElementById('gen-date').textContent = D.meta.generated;
+  document.getElementById('gen-commit').textContent = D.meta.commit;
+  document.getElementById('supply-first').textContent = (D.yearly[0].supply_btc / 1e6).toFixed(1);
+  document.getElementById('supply-last').textContent = (D.yearly[D.yearly.length - 1].supply_btc / 1e6).toFixed(1);
+  document.getElementById('e-btc').textContent = eraAll.tx_btc_vs_price.slope.toFixed(2);
+  document.getElementById('e-usd').textContent = '+' + eraAll.tx_usd_vs_price.slope.toFixed(2);
+
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = C.muted;
+  Chart.defaults.animation = false;
+  Chart.defaults.plugins.legend.display = false;
+  Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: C.surface, titleColor: C.ink, bodyColor: C.ink2, borderColor: C.axis, borderWidth: 1, padding: 8, boxPadding: 4 });
+  Object.assign(Chart.defaults.elements.line, { borderWidth: 2, borderJoinStyle: 'round', borderCapStyle: 'round' });
+  Object.assign(Chart.defaults.elements.point, { radius: 0, hoverRadius: 5, hoverBorderWidth: 2, hoverBorderColor: C.surface });
+  const axisBase = { grid: { color: C.grid, lineWidth: 1, drawTicks: false }, border: { color: C.axis, width: 1 }, ticks: { color: C.muted, padding: 6 } };
+  const yearTicks = { callback: (v) => new Date(v).getUTCFullYear(), maxTicksLimit: 9, color: C.muted, padding: 6 };
+  const xTime = { ...axisBase, grid: { display: false }, type: 'linear', min: toDate('2011-01'), max: toDate(mon[mon.length - 1].month), ticks: yearTicks };
+  const yLog = (title) => ({ ...axisBase, type: 'logarithmic', title: { display: !!title, text: title, color: C.ink2 }, ticks: { ...axisBase.ticks, callback: (v) => { const l = Math.log10(v); return Number.isInteger(l) ? fmtX(v) : ''; } } });
+  const crosshair = { id: 'crosshair', afterDraw(chart) {
+    const act = chart.tooltip && chart.tooltip.getActiveElements ? chart.tooltip.getActiveElements() : [];
+    if (!act.length || chart.config.type !== 'line') return;
+    const x = act[0].element.x; const a = chart.chartArea; const ctx = chart.ctx;
+    ctx.save(); ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, a.top); ctx.lineTo(x, a.bottom); ctx.stroke(); ctx.restore();
+  } };
+  Chart.register(crosshair);
+  const monthLabel = (t) => { const d = new Date(t); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
+  const timeLine = (id, datasets, yTitle, fmt) => new Chart(document.getElementById(id), {
+    type: 'line', data: { datasets },
+    options: { responsive: true, maintainAspectRatio: false, parsing: false, normalized: true,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: { tooltip: { callbacks: { title: (it) => monthLabel(it[0].parsed.x), label: (i) => ' ' + i.dataset.label + ': ' + fmt(i.parsed.y) } } },
+      scales: { x: xTime, y: yLog(yTitle) } }
+  });
+  const series = (key, color, label, f) => ({ label, borderColor: color, backgroundColor: color, data: mon.map(m => ({ x: toDate(m.month), y: f ? f(m[key]) : m[key] })) });
+
+  // KPIs
+  const r = D.ratios;
+  const kw = document.getElementById('kpis');
+  [[`Price, ${D.first_year} to ${D.last_year}`, '×' + Math.round(r.price_usd).toLocaleString(), 'yearly medians'],
+   ['Coins in circulation', '×' + r.supply_btc.toFixed(1), 'the minted-coin correction'],
+   ['BTC per transaction', '÷' + Math.round(1 / r.mean_tx_btc), 'raw'],
+   ['Share of supply per transaction', '÷' + Math.round(1 / r.mean_tx_share_ppm), 'adjusted for minted coins'],
+   ['USD per transaction', '×' + Math.round(r.mean_tx_usd), 'the real size of a transaction rose']
+  ].forEach(([label, value, note]) => {
+    const d = document.createElement('div'); d.className = 'kpi';
+    d.append(text(Object.assign(document.createElement('div'), { className: 'label' }), label),
+             text(Object.assign(document.createElement('div'), { className: 'value' }), value),
+             text(Object.assign(document.createElement('div'), { className: 'note' }), note));
+    kw.appendChild(d);
+  });
+
+  // 1. toy
+  new Chart(document.getElementById('toy'), {
+    type: 'line',
+    data: { datasets: [
+      { label: 'price per coin', borderColor: C.gray, backgroundColor: C.gray, pointRadius: 4, pointBorderColor: C.surface, pointBorderWidth: 2, data: D.toy.users_rel.map((u, i) => ({ x: u, y: D.toy.price_rel[i] })) },
+      { label: 'coins per transaction', borderColor: C.blue, backgroundColor: C.blue, pointRadius: 4, pointBorderColor: C.surface, pointBorderWidth: 2, data: D.toy.users_rel.map((u, i) => ({ x: u, y: D.toy.coins_per_tx_rel[i] })) } ] },
+    options: { responsive: true, maintainAspectRatio: false, parsing: false,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: { tooltip: { callbacks: { title: (it) => 'users ×' + it[0].parsed.x, label: (i) => ' ' + i.dataset.label + ': ×' + fmtX(i.parsed.y) } } },
+      scales: { x: { ...axisBase, grid: { display: false }, type: 'logarithmic', title: { display: true, text: 'users, relative to start', color: C.ink2 }, ticks: { ...axisBase.ticks, callback: (v) => [1, 10, 100].includes(v) ? '×' + v : '' } },
+                y: yLog('relative to start') } }
+  });
+
+  // 2. raw
+  timeLine('price', [series('price_usd', C.gray, 'price USD')], 'USD', (v) => '$' + fmtX(v));
+  timeLine('txbtc', [series('mean_tx_btc', C.orange, 'BTC per transaction')], 'BTC', (v) => fmtX(v) + ' BTC');
+
+  // 3. adjusted
+  const base = mon[0];
+  timeLine('adjusted', [
+    series('mean_tx_btc', C.orange, 'BTC per transaction, indexed', (v) => v / base.mean_tx_btc),
+    series('mean_tx_share_ppm', C.blue, 'share of supply per transaction, indexed', (v) => v / base.mean_tx_share_ppm),
+  ], 'index (Jan 2011 = 1)', (v) => fmtX(v));
+
+  // 4. scatter
+  const early = mon.filter(m => m.month < '2017'), late = mon.filter(m => m.month >= '2017');
+  const pt = (m) => ({ x: m.active_addresses, y: m.mean_tx_share_ppm, month: m.month });
+  const xs = mon.map(m => m.active_addresses); const lo = Math.min(...xs), hi = Math.max(...xs);
+  const ex = early.map(m => Math.log(m.active_addresses)), ey = early.map(m => Math.log(m.mean_tx_share_ppm));
+  const x0 = Math.exp(ex.reduce((a, b) => a + b, 0) / ex.length), y0 = Math.exp(ey.reduce((a, b) => a + b, 0) / ey.length);
+  const fit = eraAll.share_vs_users;
+  // fit line through the data's log-centroid with the fitted slope
+  const lx = mon.map(m => Math.log(m.active_addresses)), ly = mon.map(m => Math.log(m.mean_tx_share_ppm));
+  const cx = lx.reduce((a, b) => a + b, 0) / lx.length, cy = ly.reduce((a, b) => a + b, 0) / ly.length;
+  const fitY = (x) => Math.exp(cy + fit.slope * (Math.log(x) - cx));
+  new Chart(document.getElementById('scatter'), {
+    data: { datasets: [
+      { type: 'scatter', label: '2011-2016', backgroundColor: C.blue, borderColor: C.surface, borderWidth: 1.5, pointRadius: 4, pointHoverRadius: 6, data: early.map(pt) },
+      { type: 'scatter', label: '2017-2026', backgroundColor: C.orange, borderColor: C.surface, borderWidth: 1.5, pointRadius: 4, pointHoverRadius: 6, data: late.map(pt) },
+      { type: 'line', label: 'toy: slope -1', borderColor: C.gray, backgroundColor: C.gray, pointRadius: 0, data: [{ x: lo, y: y0 * x0 / lo }, { x: hi, y: y0 * x0 / hi }] },
+      { type: 'line', label: 'fit: slope ' + fit.slope.toFixed(2), borderColor: C.blueDark, backgroundColor: C.blueDark, borderDash: [5, 4], pointRadius: 0, data: [{ x: lo, y: fitY(lo) }, { x: hi, y: fitY(hi) }] } ] },
+    options: { responsive: true, maintainAspectRatio: false, parsing: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: { legend: { display: true, position: 'bottom', labels: { color: C.ink2, boxWidth: 12, usePointStyle: true } },
+                 tooltip: { filter: (i) => i.dataset.type === 'scatter', callbacks: { title: (it) => it.length ? it[0].raw.month : '', label: (i) => ' ' + fmtX(i.parsed.y) + ' ppm of supply at ' + Math.round(i.parsed.x).toLocaleString() + ' addresses' } } },
+      scales: { x: { ...axisBase, grid: { display: false }, type: 'logarithmic', title: { display: true, text: 'active addresses per day', color: C.ink2 }, ticks: { ...axisBase.ticks, callback: (v) => Number.isInteger(Math.log10(v)) ? fmtX(v) : '' } },
+                y: yLog('millionths of supply per transaction') } }
+  });
+  const table = (host, head, rows) => {
+    const t = document.createElement('table'); const tr = document.createElement('tr');
+    head.forEach(h => tr.appendChild(text(document.createElement('th'), h))); t.appendChild(tr);
+    rows.forEach(rw => { const row = document.createElement('tr'); rw.forEach(c => row.appendChild(text(document.createElement('td'), c))); t.appendChild(row); });
+    host.appendChild(t);
+  };
+  const es = (e) => e ? e.slope.toFixed(2) + ' (r² ' + e.r2.toFixed(2) + ')' : '-';
+  table(document.getElementById('era-table'), ['Era', 'Months', 'BTC per tx vs price', 'USD per tx vs price', 'Share of supply vs users', 'Share of supply vs market cap', 'Median fee per tx'],
+    D.eras.map(e => [e.from + ' to ' + e.to, String(e.months), es(e.tx_btc_vs_price), es(e.tx_usd_vs_price), es(e.share_vs_users), es(e.share_vs_market_cap), '$' + e.median_fee_per_tx_usd.toFixed(2)]));
+
+  // 5. real size and fees
+  timeLine('txusd', [series('mean_tx_usd', C.orange, 'USD per transaction')], 'USD', (v) => '$' + fmtX(v));
+  timeLine('fees', [series('fee_per_tx_usd', C.gray, 'fee per transaction', (v) => Math.max(v, 0.001))], 'USD', (v) => '$' + fmtX(v));
+  table(document.getElementById('year-table'), ['Year', 'Price $', 'Supply M', 'Tx/day', 'Active addresses', 'BTC/tx', 'ppm of supply/tx', 'USD/tx', 'Fee $/tx'],
+    D.yearly.filter(y => y.price_usd).map(y => [String(y.year), fmtX(y.price_usd), (y.supply_btc / 1e6).toFixed(1), Math.round(y.tx_count).toLocaleString(), Math.round(y.active_addresses).toLocaleString(), y.mean_tx_btc.toFixed(2), y.mean_tx_share_ppm.toFixed(3), Math.round(y.mean_tx_usd).toLocaleString(), y.fee_per_tx_usd.toFixed(2)]));
+})();
+</script>
+</body>
+</html>

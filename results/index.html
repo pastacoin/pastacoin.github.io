@@ -141,7 +141,10 @@
   <div class="legend"><span class="trend">Trend, asymmetric (whitepaper)</span><span class="trend2">Trend, symmetric</span><span class="anchored">Anchored, gain 0.1</span></div>
   <div class="card"><div class="chart tall"><canvas id="bias" role="img" aria-label="Line chart of price level over time with no shock for three controllers"></canvas></div></div>
 
-  <h2>7. Limitations</h2>
+  <h2>7. The real-world companion: Bitcoin</h2>
+  <p>Bitcoin is the natural fixed-supply test case for the shrinking-transaction claim. <a href="bitcoin.html">The Bitcoin demonstration</a> rebuilds the whitepaper's chart from public chain data, corrects it for minted coins, and shows where the average-transaction-size gauge held and where it broke.</p>
+
+  <h2>8. Limitations</h2>
   <ul>
     <li>The price level is a closed-form quantity-theory expression, not an emergent market price. No expectations, no interest, no external exchange rate.</li>
     <li>With the default money demand, agents hold about two purchases' worth of coin, so roughly 45% of attempted purchases are unaffordable and skipped. This biases observed averages. The granularity sweep uses a higher money demand for that reason.</li>
@@ -149,7 +152,7 @@
     <li>No adversarial agents yet (self-dealing, wash trading). Issue <a href="https://github.com/pastacoin/pastacoin/issues/13">#13</a>.</li>
   </ul>
 
-  <h2>8. Reproduce</h2>
+  <h2>9. Reproduce</h2>
   <pre>git clone https://github.com/pastacoin/pastacoin && cd pastacoin
 python -m venv .venv && .venv/Scripts/pip install -e ".[dev]" matplotlib
 .venv/Scripts/python -m pasta.sim.report --json results.json --figures figures
