@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fixed supply across chains</title>
+<meta name="description" content="Does the median transaction track purchasing power? The fixed-supply demonstration repeated on Bitcoin, Ethereum, Litecoin, Dogecoin and Bitcoin Cash with public chain data.">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #ffffff; --surface: #fcfcfb;
+    --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --btc: #2a78d6; --eth: #eb6834; --ltc: #1baf7a; --doge: #eda100; --bch: #e87ba4; --gray: #898781;
+    --wash: #f4f4f1; --link: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19;
+      --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --btc: #3987e5; --eth: #d95926; --ltc: #199e70; --doge: #c98500; --bch: #d55181; --gray: #898781;
+      --wash: #232321; --link: #6da7ec;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --btc: #3987e5; --eth: #d95926; --ltc: #199e70; --doge: #c98500; --bch: #d55181; --gray: #898781;
+    --wash: #232321; --link: #6da7ec;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font-family: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace; line-height: 1.55; }
+  a { color: var(--link); }
+  nav { border-bottom: 1px solid var(--border); padding: 12px 16px; }
+  nav .wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  nav img { width: 36px; height: 36px; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  main { padding: 0 16px 64px; }
+  h1 { font-size: clamp(26px, 4.5vw, 40px); font-weight: 900; margin: 40px 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 20px; margin: 48px 0 8px; }
+  h3 { font-size: 15px; margin: 8px 0 4px; font-weight: 600; }
+  p, li { color: var(--ink2); font-size: 15px; max-width: 78ch; }
+  p.lead { font-size: 17px; color: var(--ink); }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--ink2); margin: 12px 0 4px; }
+  .legend span::before { content: ""; display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; background: currentColor; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 8px; }
+  .card h3 { margin: 0 0 6px; }
+  .card .sub { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+  .chart { position: relative; height: 230px; }
+  .chart.tall { height: 340px; }
+  .callout { background: var(--wash); border-left: 3px solid var(--ltc); padding: 12px 16px; margin: 20px 0; border-radius: 4px; }
+  .callout.bad { border-left-color: var(--eth); }
+  details { margin: 12px 0; }
+  summary { cursor: pointer; color: var(--ink2); font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 10px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; color: var(--ink2); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  code, pre { background: var(--wash); border-radius: 4px; }
+  code { padding: 1px 5px; font-size: 13px; }
+  pre { padding: 12px 14px; overflow-x: auto; font-size: 13px; color: var(--ink2); }
+  footer { border-top: 1px solid var(--border); padding: 20px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a href="/"><img src="https://avatars.githubusercontent.com/u/198161947?s=200&v=4" alt="PaStaCoin logo"></a>
+  <a href="/" style="text-decoration:none;color:var(--ink);font-size:18px">PaStaCoin</a>
+  <span style="color:var(--muted)">/ <a href="/results/">simulation results</a> / <a href="bitcoin.html">bitcoin</a> / other chains</span>
+</div></nav>
+
+<main><div class="wrap">
+  <h1>Does the median transaction track purchasing power? Five chains</h1>
+  <p class="lead">The <a href="bitcoin.html">Bitcoin page</a> found that the <em>average</em> on-chain transaction got 150 times larger in real terms, which breaks the whitepaper's gauge. Averages are dominated by exchanges and whales. This page repeats the test on every chain with free daily data, using the <em>median</em> transaction wherever it is available.</p>
+  <p>Generated <span id="gen-date"></span>, commit <code id="gen-commit"></code>. Sources: <span id="sources"></span>. Monthly medians of daily values. Elasticity is the slope of log(y) on log(x): minus one means coins per transaction fall exactly as fast as the price rises, and zero for the USD version means the real size of a transaction did not change.</p>
+
+  <div id="chain-notes"></div>
+
+  <h2>1. Price up, coins per median transaction down</h2>
+  <p>Each panel indexes the price and the median transaction size (in the coin's own units) to the first month, on one axis. If the median transaction tracks purchasing power, the two lines are mirror images and the elasticity in the title is close to minus one.</p>
+  <div class="legend"><span style="color:var(--gray)">Price, indexed</span><span style="color:var(--ink2)">Median transaction in coin units, indexed (chain colour)</span></div>
+  <div class="grid" id="mirror-grid"></div>
+
+  <h2>2. What the median transaction was worth</h2>
+  <p>The direct test. A flat line means people moved about the same real value per transaction regardless of the coin's price.</p>
+  <div class="legend" id="usd-legend"></div>
+  <div class="card"><div class="chart tall"><canvas id="usd" role="img" aria-label="Median transaction value in USD over time for each chain, log scale"></canvas></div></div>
+  <details><summary>Table view: yearly median transaction in USD</summary><div id="usd-table"></div></details>
+
+  <h2>3. Elasticities side by side</h2>
+  <div class="grid">
+    <div class="card"><h3>Median coins per transaction vs price</h3><p class="sub">-1 = tracks purchasing power exactly; 0 = no response</p><div class="chart"><canvas id="e-native" role="img" aria-label="Bar chart of elasticity of median coins per transaction with respect to price, per chain"></canvas></div></div>
+    <div class="card"><h3>Median USD per transaction vs price</h3><p class="sub">0 = real size unchanged; +1 = real size moves with price</p><div class="chart"><canvas id="e-usd" role="img" aria-label="Bar chart of elasticity of median USD per transaction with respect to price, per chain"></canvas></div></div>
+  </div>
+  <details><summary>Table view: elasticities by chain and era</summary><div id="era-table"></div></details>
+
+  <h2>4. Slice of supply per median transaction vs users</h2>
+  <p>The coarse fixed-supply model predicts a slope of minus one on log-log axes. This corrects for coins minted along the way by dividing by circulating supply.</p>
+  <div class="grid" id="share-grid"></div>
+
+  <h2>5. Reading</h2>
+  <div id="reading"></div>
+
+  <h2>6. Caveats</h2>
+  <ul>
+    <li>Two sources. Litecoin, Dogecoin and Bitcoin Cash use Blockchair's daily aggregates, where transfer value is the total output of each transaction including the change a wallet sends back to itself; levels overstate true transfers, the median far less than the mean. Bitcoin and Ethereum use BitInfoCharts' daily median and mean transaction value in USD, converted to coin units at the CoinMetrics daily price, because Blockchair rate-limits bulk pulls. The two sources agree on Litecoin's yearly medians to within about 20%.</li>
+    <li>Ethereum: the median is only available until 2019, after which zero-value contract calls swamp it. The mean is diluted by those calls. ERC-20 and stablecoin transfers, which carry most of Ethereum's payment activity today, are not counted anywhere here. A filtered median (plain transfers of at least 0.001 ETH) is queued behind Blockchair's limits.</li>
+    <li>Dust and inscriptions: periods of spam with near-zero outputs (Dogecoin 2024, Bitcoin Cash 2019) drag the daily median toward zero. Those months show as dips in the USD chart and weaken the fits.</li>
+    <li>Round-number habits: Dogecoin's median sat at exactly 10,000 DOGE for years because of tipping conventions. A convention, not a price signal.</li>
+    <li>Active addresses count addresses, not people; exchanges and batching make it a loose proxy for users.</li>
+  </ul>
+
+  <h2>7. Reproduce</h2>
+  <pre>git clone https://github.com/pastacoin/pastacoin && cd pastacoin
+python -m venv .venv && .venv/Scripts/pip install -e ".[dev,report]"
+.venv/Scripts/python -m pasta.analysis.chains_report --figures figures         # committed data/chains/*.csv
+.venv/Scripts/python -m pasta.analysis.chains_report --fetch ltc doge --figures figures   # refresh (Blockchair rate limits apply)</pre>
+</div></main>
+
+<footer>PaStaCoin &middot; <a href="/">home</a> &middot; <a href="/results/">simulation results</a> &middot; <a href="bitcoin.html">bitcoin</a> &middot; <a href="https://github.com/pastacoin">GitHub</a></footer>
+
+<script src="chains-data.js"></script>
+<script>
+(function () {
+  const D = window.PASTA_CHAINS;
+  if (!D) { document.getElementById('chain-notes').textContent = 'Data failed to load.'; return; }
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const C = { ink: css('--ink'), ink2: css('--ink2'), muted: css('--muted'), grid: css('--grid'), axis: css('--axis'), surface: css('--surface'), gray: css('--gray') };
+  const color = (c) => css('--' + c.chain) || c.color;
+  const text = (el, s) => { el.textContent = s; return el; };
+  const toDate = (m) => new Date(m + '-01T00:00:00Z').getTime();
+  const fmt = (v) => (v >= 1000 ? Math.round(v).toLocaleString() : v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(2) : v.toPrecision(2));
+  const chains = D.chains.filter(c => c.median_ok);
+  const pending = D.chains.filter(c => !c.median_ok);
+
+  document.getElementById('gen-date').textContent = D.meta.generated;
+  document.getElementById('gen-commit').textContent = D.meta.commit;
+  document.getElementById('sources').textContent = D.meta.sources;
+  const notes = document.getElementById('chain-notes');
+  const ul = document.createElement('ul');
+  for (const c of D.chains) {
+    const li = document.createElement('li');
+    li.append(text(document.createElement('strong'), c.name + ' (' + c.symbol + '): '), text(document.createTextNode(''), ''),
+              document.createTextNode(c.supply_note + '. Data ' + c.range.first_year + ' to ' + c.range.last_day + '. Transaction values from ' + (c.source === 'bitinfocharts' ? 'BitInfoCharts' : 'Blockchair') + (c.median_note ? ' (' + c.median_note + ')' : '') + (c.median_ok ? '.' : '. Median not usable in this data pull; shown in tables only.')));
+    ul.appendChild(li);
+  }
+  notes.appendChild(ul);
+
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = C.muted;
+  Chart.defaults.animation = false;
+  Chart.defaults.plugins.legend.display = false;
+  Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: C.surface, titleColor: C.ink, bodyColor: C.ink2, borderColor: C.axis, borderWidth: 1, padding: 8, boxPadding: 4 });
+  Object.assign(Chart.defaults.elements.line, { borderWidth: 2, borderJoinStyle: 'round', borderCapStyle: 'round' });
+  Object.assign(Chart.defaults.elements.point, { radius: 0, hoverRadius: 5, hoverBorderWidth: 2, hoverBorderColor: C.surface });
+  const axisBase = { grid: { color: C.grid, lineWidth: 1, drawTicks: false }, border: { color: C.axis, width: 1 }, ticks: { color: C.muted, padding: 6 } };
+  const yearTicks = { callback: (v) => new Date(v).getUTCFullYear(), maxTicksLimit: 8, color: C.muted, padding: 6 };
+  const logTicks = { ...axisBase.ticks, callback: (v) => Number.isInteger(Math.log10(v)) ? fmt(v) : '' };
+  const monthLabel = (t) => { const d = new Date(t); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
+  const crosshair = { id: 'crosshair', afterDraw(chart) {
+    const act = chart.tooltip && chart.tooltip.getActiveElements ? chart.tooltip.getActiveElements() : [];
+    if (!act.length || chart.config.type !== 'line') return;
+    const x = act[0].element.x; const a = chart.chartArea; const ctx = chart.ctx;
+    ctx.save(); ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, a.top); ctx.lineTo(x, a.bottom); ctx.stroke(); ctx.restore();
+  } };
+  Chart.register(crosshair);
+  const timeLine = (canvas, datasets, yTitle, f, xmin, xmax) => new Chart(canvas, {
+    type: 'line', data: { datasets },
+    options: { responsive: true, maintainAspectRatio: false, parsing: false, normalized: true,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: { tooltip: { callbacks: { title: (it) => monthLabel(it[0].parsed.x), label: (i) => ' ' + i.dataset.label + ': ' + f(i.parsed.y) } } },
+      scales: { x: { ...axisBase, grid: { display: false }, type: 'linear', min: xmin, max: xmax, ticks: yearTicks },
+                y: { ...axisBase, type: 'logarithmic', title: { display: !!yTitle, text: yTitle, color: C.ink2 }, ticks: logTicks } } }
+  });
+
+  // 1. mirror panels
+  const mg = document.getElementById('mirror-grid');
+  for (const c of chains) {
+    const mon = c.monthly.filter(m => m.price_usd && m.median_tx_native);
+    const p0 = mon[0].price_usd, t0 = mon[0].median_tx_native;
+    const card = document.createElement('div'); card.className = 'card';
+    const e = c.eras[0].median_native_vs_price;
+    card.append(text(document.createElement('h3'), c.name + ': elasticity ' + (e.slope > 0 ? '+' : '') + e.slope.toFixed(2)),
+                text(Object.assign(document.createElement('p'), { className: 'sub' }), 'r² ' + e.r2.toFixed(2) + ' over ' + e.n + ' months; both series indexed to ' + mon[0].month));
+    const holder = document.createElement('div'); holder.className = 'chart';
+    const canvas = document.createElement('canvas'); canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', c.name + ' price and median transaction size, indexed');
+    holder.appendChild(canvas); card.appendChild(holder); mg.appendChild(card);
+    timeLine(canvas, [
+      { label: 'price, indexed', borderColor: C.gray, backgroundColor: C.gray, data: mon.map(m => ({ x: toDate(m.month), y: m.price_usd / p0 })) },
+      { label: 'median tx (' + c.symbol + '), indexed', borderColor: color(c), backgroundColor: color(c), data: mon.map(m => ({ x: toDate(m.month), y: m.median_tx_native / t0 })) },
+    ], 'index', (v) => '×' + fmt(v), toDate(mon[0].month), toDate(mon[mon.length - 1].month));
+  }
+
+  // 2. USD
+  const ul2 = document.getElementById('usd-legend');
+  for (const c of chains) { const s = document.createElement('span'); s.style.color = color(c); s.textContent = c.name; ul2.appendChild(s); }
+  const allMonths = chains.flatMap(c => c.monthly.map(m => m.month));
+  timeLine(document.getElementById('usd'), chains.map(c => ({ label: c.name, borderColor: color(c), backgroundColor: color(c),
+    data: c.monthly.filter(m => m.median_tx_usd).map(m => ({ x: toDate(m.month), y: m.median_tx_usd })) })),
+    'USD', (v) => '$' + fmt(v), toDate(allMonths.reduce((a, b) => a < b ? a : b)), toDate(allMonths.reduce((a, b) => a > b ? a : b)));
+  const table = (host, head, rows) => {
+    const t = document.createElement('table'); const tr = document.createElement('tr');
+    head.forEach(h => tr.appendChild(text(document.createElement('th'), h))); t.appendChild(tr);
+    rows.forEach(rw => { const row = document.createElement('tr'); rw.forEach(x => row.appendChild(text(document.createElement('td'), x))); t.appendChild(row); });
+    host.appendChild(t);
+  };
+  const years = [...new Set(D.chains.flatMap(c => c.yearly.map(y => y.year)))].sort();
+  table(document.getElementById('usd-table'), ['Year', ...D.chains.map(c => c.name + ' $')],
+    years.map(y => [String(y), ...D.chains.map(c => { const r = c.yearly.find(z => z.year === y); return r && r.median_tx_usd ? fmt(r.median_tx_usd) : '-'; })]));
+
+  // 3. elasticity bars
+  const barBase = { borderRadius: 4, borderSkipped: false, maxBarThickness: 26, categoryPercentage: 0.6 };
+  const refLine = { id: 'refLine', afterDraw(chart, args, opts) {
+    for (const [v, label] of opts.lines || []) {
+      const y = chart.scales.y.getPixelForValue(v); const a = chart.chartArea; const ctx = chart.ctx;
+      ctx.save(); ctx.strokeStyle = C.axis; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.left, y); ctx.lineTo(a.right, y); ctx.stroke();
+      ctx.fillStyle = C.ink2; ctx.font = '10px ' + Chart.defaults.font.family; ctx.textAlign = 'right'; ctx.fillText(label, a.right - 4, y - 4); ctx.restore();
+    }
+  } };
+  Chart.register(refLine);
+  const bars = (id, values, lines, yTitle) => new Chart(document.getElementById(id), {
+    type: 'bar',
+    data: { labels: chains.map(c => c.name), datasets: [{ ...barBase, label: 'elasticity', data: values, backgroundColor: chains.map(color) }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { refLine: { lines }, tooltip: { callbacks: { label: (i) => ' elasticity ' + (i.parsed.y > 0 ? '+' : '') + i.parsed.y.toFixed(2) } } },
+      scales: { x: { ...axisBase, grid: { display: false } }, y: { ...axisBase, title: { display: true, text: yTitle, color: C.ink2 }, suggestedMin: -1.5, suggestedMax: 1.2 } } }
+  });
+  bars('e-native', chains.map(c => c.eras[0].median_native_vs_price.slope), [[-1, 'tracks purchasing power'], [0, 'no response']], 'elasticity');
+  bars('e-usd', chains.map(c => c.eras[0].median_usd_vs_price.slope), [[0, 'real size unchanged'], [1, 'moves with price']], 'elasticity');
+  const es = (e) => e ? (e.slope > 0 ? '+' : '') + e.slope.toFixed(2) + ' (r² ' + e.r2.toFixed(2) + ')' : '-';
+  table(document.getElementById('era-table'), ['Chain', 'Era', 'Median coins/tx vs price', 'Median USD/tx vs price', 'Mean coins/tx vs price', 'Mean USD/tx vs price', 'Median share vs users'],
+    D.chains.flatMap(c => c.eras.map(e => [c.name, e.from + ' to ' + e.to, es(e.median_native_vs_price), es(e.median_usd_vs_price), es(e.mean_native_vs_price), es(e.mean_usd_vs_price), es(e.median_share_vs_users)])));
+
+  // 4. share vs users scatter per chain
+  const sg = document.getElementById('share-grid');
+  for (const c of chains) {
+    const mon = c.monthly.filter(m => m.active_addresses && m.median_tx_share_ppm);
+    const e = c.eras[0].median_share_vs_users;
+    const card = document.createElement('div'); card.className = 'card';
+    card.append(text(document.createElement('h3'), c.name + ': slope ' + (e ? (e.slope > 0 ? '+' : '') + e.slope.toFixed(2) + ', r² ' + e.r2.toFixed(2) : '-')),
+                text(Object.assign(document.createElement('p'), { className: 'sub' }), 'millionths of supply per median transaction vs active addresses per day'));
+    const holder = document.createElement('div'); holder.className = 'chart';
+    const canvas = document.createElement('canvas'); canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', c.name + ' share of supply per median transaction against active addresses');
+    holder.appendChild(canvas); card.appendChild(holder); sg.appendChild(card);
+    const xs = mon.map(m => m.active_addresses), ys = mon.map(m => m.median_tx_share_ppm);
+    const lo = Math.min(...xs), hi = Math.max(...xs);
+    const cx = Math.exp(xs.reduce((a, v) => a + Math.log(v), 0) / xs.length), cy = Math.exp(ys.reduce((a, v) => a + Math.log(v), 0) / ys.length);
+    new Chart(canvas, {
+      data: { datasets: [
+        { type: 'scatter', label: 'months', backgroundColor: color(c), borderColor: C.surface, borderWidth: 1.2, pointRadius: 3.5, pointHoverRadius: 6, data: mon.map(m => ({ x: m.active_addresses, y: m.median_tx_share_ppm, month: m.month })) },
+        { type: 'line', label: 'toy slope -1', borderColor: C.gray, backgroundColor: C.gray, pointRadius: 0, data: [{ x: lo, y: cy * cx / lo }, { x: hi, y: cy * cx / hi }] },
+        ...(e ? [{ type: 'line', label: 'fit', borderColor: C.ink2, backgroundColor: C.ink2, borderDash: [5, 4], pointRadius: 0, data: [{ x: lo, y: cy * Math.pow(lo / cx, e.slope) }, { x: hi, y: cy * Math.pow(hi / cx, e.slope) }] }] : []) ] },
+      options: { responsive: true, maintainAspectRatio: false, parsing: false,
+        interaction: { mode: 'nearest', intersect: false },
+        plugins: { tooltip: { filter: (i) => i.dataset.type === 'scatter', callbacks: { title: (it) => it.length ? it[0].raw.month : '', label: (i) => ' ' + fmt(i.parsed.y) + ' ppm at ' + Math.round(i.parsed.x).toLocaleString() + ' addresses' } } },
+        scales: { x: { ...axisBase, grid: { display: false }, type: 'logarithmic', ticks: logTicks }, y: { ...axisBase, type: 'logarithmic', ticks: logTicks } } }
+    });
+  }
+
+  // 5. reading
+  const rd = document.getElementById('reading');
+  const byKey = Object.fromEntries(D.chains.map(c => [c.chain, c]));
+  const lines = [];
+  for (const c of chains) {
+    const e = c.eras[0];
+    const usdFirst = c.yearly.find(y => y.median_tx_usd), usdLast = [...c.yearly].reverse().find(y => y.median_tx_usd);
+    lines.push(c.name + ': price ×' + fmt(c.ratios.price_usd) + ' from ' + c.range.first_year + ' to ' + c.range.last_year + '; median transaction ' + (e.median_native_vs_price.slope <= -0.8 ? 'fell almost one-for-one with price' : 'fell more slowly than price rose') +
+      ' (elasticity ' + e.median_native_vs_price.slope.toFixed(2) + '); median USD size went from $' + fmt(usdFirst.median_tx_usd) + ' to $' + fmt(usdLast.median_tx_usd) + ' (elasticity vs price ' + (e.median_usd_vs_price.slope > 0 ? '+' : '') + e.median_usd_vs_price.slope.toFixed(2) + ').');
+  }
+  const ul3 = document.createElement('ul'); lines.forEach(l => ul3.appendChild(text(document.createElement('li'), l))); rd.appendChild(ul3);
+  const good = chains.filter(c => c.eras[0].median_native_vs_price.slope <= -0.8);
+  const box = document.createElement('div'); box.className = 'callout';
+  box.append(text(document.createElement('strong'), 'What it says. '),
+    document.createTextNode((good.length ? good.map(c => c.name).join(' and ') + (good.length > 1 ? ' show' : ' shows') + ' the whitepaper\'s assumption holding for the median transaction: the real value people move per transaction stayed roughly constant while the coin\'s price moved by orders of magnitude, so coins per median transaction tracked purchasing power with elasticity near minus one. ' : '') +
+      'The Bitcoin mean, by contrast, rose 150x in real terms. The gauge works where transactions are ordinary payments and the chain is not full; it breaks where the chain becomes a settlement layer and the mean is dominated by large transfers. A PaSta signal should therefore be built on a robust statistic such as the median, not the mean, and the simulator\'s granularity test should be re-run with median-based rules.'));
+  rd.appendChild(box);
+  for (const c of pending) {
+    const e = c.eras[0];
+    const mFirst = c.yearly.find(y => y.mean_tx_usd), mLast = [...c.yearly].reverse().find(y => y.mean_tx_usd);
+    const p = document.createElement('p');
+    p.textContent = c.name + ' is left out of the median charts: ' + c.median_note + '. On the mean alone, the average transaction went from $' + fmt(mFirst.mean_tx_usd) + ' (' + mFirst.year + ') to $' + fmt(mLast.mean_tx_usd) + ' (' + mLast.year + ') while the price rose ×' + fmt(c.ratios.price_usd) + '; elasticity of mean coins per transaction to price ' + e.mean_native_vs_price.slope.toFixed(2) + ', of mean USD per transaction to price ' + (e.mean_usd_vs_price.slope > 0 ? '+' : '') + e.mean_usd_vs_price.slope.toFixed(2) + '. Ethereum is a smart-contract platform rather than a payments chain, and most of its money-like activity is in ERC-20 stablecoins, so plain ETH transfers are a poor gauge of anything PaSta cares about. It is included because the question was asked, not because it is a good test.';
+    rd.appendChild(p);
+  }
+})();
+</script>
+</body>
+</html>

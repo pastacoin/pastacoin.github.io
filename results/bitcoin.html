@@ -126,6 +126,9 @@
   <div class="callout bad">
     <strong>Not supported.</strong> Average transaction size was not a clean gauge of purchasing power. The real value of an on-chain transaction moved by two orders of magnitude for reasons that had nothing to do with the coin's value: fee pressure, batching, and the network's shift to a settlement role. This is the same confound the <a href="/results/">simulator</a> flags as the granularity problem. A payments coin without a block-space cap would suffer less of it, but Bitcoin's history cannot show how much less.
   </div>
+  <div class="callout">
+    <strong>Update: the median tells a different story.</strong> Everything above uses the mean, which exchanges and whales dominate. The <a href="chains.html">multi-chain page</a> repeats the test with the daily <em>median</em>: the median Bitcoin transaction was worth about $63 in 2011 and about $68 in 2026, peaking near $800 in 2021, across a 23,000x price move, with an elasticity of median coins per transaction to price of about -0.8. The gauge is usable if it is the median, and it is distorted mainly when fees price small payments off chain.
+  </div>
   <p>Two caveats on the data itself. Only the mean transaction size is available for free; the median would be far less dominated by exchange and whale transfers and is worth buying or computing from a full node. And "estimated transaction volume" is a heuristic for removing change outputs, so the absolute levels are approximate even though the trends are robust.</p>
 
   <h2>7. Reproduce</h2>
