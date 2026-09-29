@@ -54,7 +54,7 @@
   .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--ink2); margin: 12px 0 4px; }
   .legend span::before { content: ""; display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; background: currentColor; }
   .legend .anchored::before { background: var(--anchored); } .legend .trend::before { background: var(--trend); } .legend .null::before { background: var(--null); }
-  .legend .anchored2::before { background: var(--anchored-2); } .legend .trend2::before { background: var(--trend-2); }
+  .legend .anchored2::before { background: var(--anchored-2); } .legend .trend2::before { background: var(--trend-2); } .legend .aqua::before { background: var(--trend-2); }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 8px; }
   .card h3 { margin: 0 0 6px; }
@@ -141,10 +141,38 @@
   <div class="legend"><span class="trend">Trend, asymmetric (whitepaper)</span><span class="trend2">Trend, symmetric</span><span class="anchored">Anchored, gain 0.1</span></div>
   <div class="card"><div class="chart tall"><canvas id="bias" role="img" aria-label="Line chart of price level over time with no shock for three controllers"></canvas></div></div>
 
-  <h2>7. The real-world companion: Bitcoin</h2>
+  <h2>7. Round two: a robust signal, supply-sized adjustments, a cap, and attackers</h2>
+  <p>Round one showed the rule needs an anchor and that carrier-sized adjustments are biased. Round two rebuilds the controller: once per period it computes one supply change from its signal, bounded by a <strong>cap</strong> on how much the supply may move per period, and spreads it across the next period's transactions in proportion to their amounts. Amounts below 5% of the running median are ignored as <strong>dust</strong>. Two signals are tested: the period <strong>median transaction size</strong> against a launch anchor, and nominal <strong>flow per holder</strong> (addresses holding at least half a typical payment) against a launch anchor. Two attackers join the economy: <strong>wash traders</strong> bouncing a typical payment ten times a step, and <strong>sybils</strong>, 200 dust addresses paying each other. Money demand is 100 in this round so affordability does not distort the statistics.</p>
+  <div class="legend"><span class="null">No controller</span><span class="anchored">Round one: anchored average</span><span class="aqua">Median size, supply-sized, capped</span><span class="trend">Flow per holder, supply-sized, capped</span></div>
+  <div class="grid" id="v2-grid"></div>
+  <details><summary>Table view: round two drift, recovery and attacker gain</summary><div id="v2-table"></div></details>
+
+  <div class="callout">
+    <strong>What works.</strong> Both round-two rules remove the steady-state bias, hold hoarding and adoption within a few percent, make wash trading a losing trade, and shrug off sybil dust that inflates the round-one rule by several hundred percent. The median-size rule also handles real growth.
+  </div>
+  <div class="callout bad">
+    <strong>What does not, and why it cannot.</strong> The two signals have mirror-image blind spots. Median size fails the granularity shift (self-inflicted 50 to 97%). Flow per holder is immune to granularity but misses per-capita real growth entirely, ending where no controller ends. On chain, "the economy grew and prices fell" and "people started paying in smaller pieces" produce the same observable pattern, so no single signal can tell them apart. Size treats both as deflation; flow treats both as nothing. A growth allowance for the flow rule is a bet on the growth rate, and it costs 129% inflation over the run when growth fails to show up.
+  </div>
+
+  <h3>Which knob fixes what</h3>
+  <p>The same attacks against variants of the rules. Turning the dust floor off, or counting active addresses instead of holders, reopens the sybil hole.</p>
+  <div id="variants-table"></div>
+
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h3>What the cap costs: recovery from hoarding</h3><p class="sub">median-size rule at gain 0.01, steps to get back within 5%</p><div class="chart"><canvas id="cap-recovery" role="img" aria-label="Bar chart of recovery steps by supply cap"></canvas></div></div>
+    <div class="card"><h3>What the cap buys: damage when fooled</h3><p class="sub">sybil dust with the dust floor off; price level change, log scale</p><div class="chart"><canvas id="cap-damage" role="img" aria-label="Bar chart of price level change when the signal is fooled, by supply cap, log scale"></canvas></div></div>
+  </div>
+  <details><summary>Table view: cap sweep</summary><div id="cap-table"></div></details>
+
+  <div class="card" style="margin-top:14px"><h3>Growth allowance under steady real growth</h3><p class="sub" id="growth-sub"></p><div class="chart tall"><canvas id="growth" role="img" aria-label="Line chart of price level change versus growth allowance for the flow rule, with reference lines for the size rule and no controller"></canvas></div></div>
+  <details><summary>Table view: growth allowance</summary><div id="growth-table"></div></details>
+
+  <p>Where this leaves the design: the chain data on the <a href="chains.html">multi-chain page</a> says granularity shifts on payment-style chains were small over thirteen years while the median tracked purchasing power. That favours the median-size rule with a dust floor and a cap as the primary signal, with flow per holder as a veto: a step change in the median with no change in flow per holder is a structural shift, not inflation, and should re-anchor rather than trigger. That hybrid is the next experiment.</p>
+
+  <h2>8. The real-world companion: Bitcoin</h2>
   <p>Bitcoin is the natural fixed-supply test case for the shrinking-transaction claim. <a href="bitcoin.html">The Bitcoin demonstration</a> rebuilds the whitepaper's chart from public chain data, corrects it for minted coins, and shows where the average-transaction-size gauge held and where it broke. <a href="chains.html">The multi-chain page</a> repeats the test on Litecoin, Dogecoin, Bitcoin Cash and Ethereum using the median transaction, which is where the whitepaper's assumption actually holds.</p>
 
-  <h2>8. Limitations</h2>
+  <h2>9. Limitations</h2>
   <ul>
     <li>The price level is a closed-form quantity-theory expression, not an emergent market price. No expectations, no interest, no external exchange rate.</li>
     <li>With the default money demand, agents hold about two purchases' worth of coin, so roughly 45% of attempted purchases are unaffordable and skipped. This biases observed averages. The granularity sweep uses a higher money demand for that reason.</li>
@@ -152,7 +180,7 @@
     <li>No adversarial agents yet (self-dealing, wash trading). Issue <a href="https://github.com/pastacoin/pastacoin/issues/13">#13</a>.</li>
   </ul>
 
-  <h2>9. Reproduce</h2>
+  <h2>10. Reproduce</h2>
   <pre>git clone https://github.com/pastacoin/pastacoin && cd pastacoin
 python -m venv .venv && .venv/Scripts/pip install -e ".[dev]" matplotlib
 .venv/Scripts/python -m pasta.sim.report --json results.json --figures figures
@@ -328,6 +356,76 @@ python -m venv .venv && .venv/Scripts/pip install -e ".[dev]" matplotlib
     { label: 'Trend, symmetric', data: toXY(b.trend_symmetric.series, 'price_rel'), borderColor: C.trend2, backgroundColor: C.trend2 },
     { label: 'Anchored, gain 0.1', data: toXY(b.anchored.series, 'price_rel'), borderColor: C.anchored, backgroundColor: C.anchored },
   ], { shockStep: null, yMin: 0.4, yMax: 1.3, yTitle: 'price level (start = 1)', xTitle: 'step' });
+
+  // ---- 7. round two
+  if (R.shocks_v2) {
+    const V2 = { null: C.null, anchored: C.anchored, size: C.trend2, flow: C.trend };
+    const V2L = { null: 'No controller', anchored: 'Round one: anchored average', size: 'Median size, supply-sized, capped', flow: 'Flow per holder, supply-sized, capped' };
+    const v2order = ['null', 'anchored', 'size', 'flow'];
+    const SHORT2 = { null: 'none', anchored: 'round one', size: 'size', flow: 'flow' };
+    const vg = document.getElementById('v2-grid');
+    const panels = R.shocks_v2.concat(R.attacks);
+    for (const panel of panels) {
+      const card = document.createElement('div'); card.className = 'card';
+      const h = text(document.createElement('h3'), panel.label);
+      const sub = text(document.createElement('p'), 'Final change: ' + v2order.map(p => SHORT2[p] + ' ' + fmtPct(panel.runs[p].drift_pct)).join(' · '));
+      sub.className = 'sub';
+      const holder = document.createElement('div'); holder.className = 'chart';
+      const canvas = document.createElement('canvas'); canvas.setAttribute('role', 'img');
+      canvas.setAttribute('aria-label', 'Round two price level over time under ' + panel.label);
+      holder.appendChild(canvas); card.append(h, sub, holder); vg.appendChild(card);
+      lineChart(canvas, v2order.map(p => ({ label: V2L[p], data: toXY(panel.runs[p].series, 'price_rel'), borderColor: V2[p], backgroundColor: V2[p] })),
+        { shockStep: panel.shock_step, yMin: 0.3, yMax: 2.2, yTitle: 'price level (pre-shock = 1)' });
+    }
+    table(document.getElementById('v2-table'), ['Case', ...v2order.map(p => V2L[p] + ' drift'), 'Size recovery', 'Flow recovery', 'Round one attacker gain / stake', 'Size attacker gain', 'Flow attacker gain'],
+      panels.map(s => [s.label, ...v2order.map(p => fmtPct(s.runs[p].drift_pct)),
+        s.runs.size.recovery_steps == null ? 'none' : String(s.runs.size.recovery_steps),
+        s.runs.flow.recovery_steps == null ? 'none' : String(s.runs.flow.recovery_steps),
+        s.runs.anchored.attacker_stake ? Math.round(s.runs.anchored.attacker_gain) + ' / ' + Math.round(s.runs.anchored.attacker_stake) : '-',
+        s.runs.size.attacker_stake ? String(Math.round(s.runs.size.attacker_gain)) : '-',
+        s.runs.flow.attacker_stake ? String(Math.round(s.runs.flow.attacker_gain)) : '-']));
+
+    table(document.getElementById('variants-table'), ['Variant', 'Wash: drift', 'Wash: attacker gain', 'Sybil: drift', 'Sybil: attacker gain', 'Granularity x2: drift'],
+      R.variants.map(v => [v.label, fmtPct(v.wash.drift_pct), String(Math.round(v.wash.attacker_gain)), fmtPct(v.sybil.drift_pct), String(Math.round(v.sybil.attacker_gain)), fmtPct(v.granularity_up.drift_pct)]));
+
+    const caps = R.cap_sweep;
+    const capLabel = (c) => c.cap_rate == null ? 'no cap' : (c.cap_rate * 100).toFixed(2) + '%';
+    new Chart(document.getElementById('cap-recovery'), {
+      type: 'bar',
+      data: { labels: caps.map(capLabel), datasets: [{ ...barBase, label: 'steps', data: caps.map(c => c.hoarding_recovery == null ? 0 : c.hoarding_recovery), backgroundColor: C.trend2 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { tooltip: { callbacks: { label: (i) => caps[i.dataIndex].hoarding_recovery == null ? ' did not recover' : ' ' + i.parsed.y + ' steps' } } },
+        scales: { x: xAxis('max supply change per period'), y: yAxis('steps') } }
+    });
+    new Chart(document.getElementById('cap-damage'), {
+      type: 'bar',
+      data: { labels: caps.map(capLabel), datasets: [{ ...barBase, label: 'price level change', data: caps.map(c => Math.max(c.misread_drift_pct, 1)), backgroundColor: C.trend }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { tooltip: { callbacks: { label: (i) => ' ' + fmtPct(caps[i.dataIndex].misread_drift_pct) + ', attackers gained ' + Math.round(caps[i.dataIndex].misread_attacker_gain).toLocaleString() } } },
+        scales: { x: xAxis('max supply change per period'), y: { ...yAxis('price level change, % (log)'), type: 'logarithmic' } } }
+    });
+    table(document.getElementById('cap-table'), ['Cap per period', 'Hoarding drift', 'Hoarding recovery', 'Fooled: drift', 'Fooled: attacker gain'],
+      caps.map(c => [capLabel(c), fmtPct(c.hoarding_drift_pct), c.hoarding_recovery == null ? 'none' : String(c.hoarding_recovery), fmtPct(c.misread_drift_pct), Math.round(c.misread_attacker_gain).toLocaleString()]));
+
+    const ga = R.growth_allowance_sweep;
+    document.getElementById('growth-sub').textContent = 'true growth ' + (R.config.growth_rate * 100).toFixed(2) + '% per period (x2.7 over the run); price level change from step 500 to 5000';
+    const gx = ga.map(g => (g.growth_per_period * 100).toFixed(2) + '%');
+    new Chart(document.getElementById('growth'), {
+      type: 'line',
+      data: { labels: gx, datasets: [
+        { label: 'flow rule, steady growth', data: ga.map(g => g.flow_growth_drift_pct), borderColor: C.trend, backgroundColor: C.trend, pointRadius: 4, pointBorderColor: C.surface, pointBorderWidth: 2 },
+        { label: 'flow rule, no growth', data: ga.map(g => g.flow_no_growth_drift_pct), borderColor: C.trend, backgroundColor: C.trend, borderDash: [5, 4], pointRadius: 4, pointBorderColor: C.surface, pointBorderWidth: 2 },
+        { label: 'median-size rule, steady growth', data: ga.map(g => g.size_growth_drift_pct), borderColor: C.trend2, backgroundColor: C.trend2, pointRadius: 0 },
+        { label: 'no controller, steady growth', data: ga.map(g => g.null_growth_drift_pct), borderColor: C.null, backgroundColor: C.null, pointRadius: 0 } ] },
+      options: { responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: true, position: 'bottom', labels: { color: C.ink2, boxWidth: 18, boxHeight: 3, usePointStyle: false } },
+                   tooltip: { callbacks: { label: (i) => ' ' + i.dataset.label + ': ' + fmtPct(i.parsed.y) } } },
+        scales: { x: xAxis('allowance: anchor growth per period'), y: yAxis('price level change, %', { ticks: { ...axisBase.ticks, callback: (v) => (v > 0 ? '+' : '') + v + '%' } }) } }
+    });
+    table(document.getElementById('growth-table'), ['Allowance per period', 'Flow rule, steady growth', 'Flow rule, no growth', 'Median-size rule, steady growth', 'No controller, steady growth'],
+      ga.map(g => [(g.growth_per_period * 100).toFixed(2) + '%', fmtPct(g.flow_growth_drift_pct), fmtPct(g.flow_no_growth_drift_pct), fmtPct(g.size_growth_drift_pct), fmtPct(g.null_growth_drift_pct)]));
+  }
 })();
 </script>
 </body>
