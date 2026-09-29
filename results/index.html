@@ -143,15 +143,16 @@
 
   <h2>7. Round two: a robust signal, supply-sized adjustments, a cap, and attackers</h2>
   <p>Round one showed the rule needs an anchor and that carrier-sized adjustments are biased. Round two rebuilds the controller: once per period it computes one supply change from its signal, bounded by a <strong>cap</strong> on how much the supply may move per period, and spreads it across the next period's transactions in proportion to their amounts. Amounts below 5% of the running median are ignored as <strong>dust</strong>. Two signals are tested: the period <strong>median transaction size</strong> against a launch anchor, and nominal <strong>flow per holder</strong> (addresses holding at least half a typical payment) against a launch anchor. Two attackers join the economy: <strong>wash traders</strong> bouncing a typical payment ten times a step, and <strong>sybils</strong>, 200 dust addresses paying each other. Money demand is 100 in this round so affordability does not distort the statistics.</p>
-  <div class="legend"><span class="null">No controller</span><span class="anchored">Round one: anchored average</span><span class="aqua">Median size, supply-sized, capped</span><span class="trend">Flow per holder, supply-sized, capped</span></div>
+  <p>A third rule, the <strong>hybrid</strong>, acts on the median-size signal but watches flow per holder for the decomposition: when the median takes a sudden step, it acts only on the part of the step that flow per holder also shows (the monetary part) and, once the step has settled, moves its anchor by the rest (the structural part). Slow drifts never look like a step and pass straight through to the size signal. Two combined cases test it: hoarding and a granularity shift at the same moment, and a granularity step during steady real growth. The round-one rule stays in the table for reference but is left off the charts.</p>
+  <div class="legend"><span class="null">No controller</span><span class="aqua">Median size, supply-sized, capped</span><span class="trend">Flow per holder, supply-sized, capped</span><span class="anchored">Hybrid: median size, flow-decomposed steps</span></div>
   <div class="grid" id="v2-grid"></div>
   <details><summary>Table view: round two drift, recovery and attacker gain</summary><div id="v2-table"></div></details>
 
   <div class="callout">
-    <strong>What works.</strong> Both round-two rules remove the steady-state bias, hold hoarding and adoption within a few percent, make wash trading a losing trade, and shrug off sybil dust that inflates the round-one rule by several hundred percent. The median-size rule also handles real growth.
+    <strong>What works.</strong> All round-two rules remove the steady-state bias, hold hoarding and adoption within a few percent, make wash trading a losing trade, and shrug off sybil dust that inflates the round-one rule by several hundred percent. The median-size rule handles steady real growth with no allowance. The hybrid keeps that and adds most of the flow rule's immunity to granularity shifts, and it is the only rule that handles hoarding and a granularity shift arriving together.
   </div>
   <div class="callout bad">
-    <strong>What does not, and why it cannot.</strong> The two signals have mirror-image blind spots. Median size fails the granularity shift (self-inflicted 50 to 97%). Flow per holder is immune to granularity but misses per-capita real growth entirely, ending where no controller ends. On chain, "the economy grew and prices fell" and "people started paying in smaller pieces" produce the same observable pattern, so no single signal can tell them apart. Size treats both as deflation; flow treats both as nothing. A growth allowance for the flow rule is a bet on the growth rate, and it costs 129% inflation over the run when growth fails to show up.
+    <strong>What does not, and why it cannot.</strong> The two base signals have mirror-image blind spots. Median size fails the granularity shift (self-inflicted 50 to 97%). Flow per holder is immune to granularity but misses per-capita real growth entirely, ending where no controller ends. On chain, "the economy grew and prices fell" and "people started paying in smaller pieces" produce the same observable pattern, so no single signal can tell them apart. Size treats both as deflation; flow treats both as nothing. A growth allowance for the flow rule is a bet on the growth rate, and it costs 129% inflation over the run when growth fails to show up. The hybrid resolves the tension by timescale rather than by signal: sudden steps are treated as structural unless flow confirms them, slow drifts as monetary. Its price is that a sudden real-growth doubling is misread as structural, and a granularity step arriving during steady growth is only partly caught.
   </div>
 
   <h3>Which knob fixes what</h3>
@@ -167,7 +168,7 @@
   <div class="card" style="margin-top:14px"><h3>Growth allowance under steady real growth</h3><p class="sub" id="growth-sub"></p><div class="chart tall"><canvas id="growth" role="img" aria-label="Line chart of price level change versus growth allowance for the flow rule, with reference lines for the size rule and no controller"></canvas></div></div>
   <details><summary>Table view: growth allowance</summary><div id="growth-table"></div></details>
 
-  <p>Where this leaves the design: the chain data on the <a href="chains.html">multi-chain page</a> says granularity shifts on payment-style chains were small over thirteen years while the median tracked purchasing power. That favours the median-size rule with a dust floor and a cap as the primary signal, with flow per holder as a veto: a step change in the median with no change in flow per holder is a structural shift, not inflation, and should re-anchor rather than trigger. That hybrid is the next experiment.</p>
+  <p>Where this leaves the design: the chain data on the <a href="chains.html">multi-chain page</a> says granularity shifts on payment-style chains were small over thirteen years while the median tracked purchasing power. The hybrid is the candidate rule for the node: median size with a dust floor and a cap as the primary signal, flow per holder to decompose sudden steps. Open items are the residual error when a granularity step lands during steady growth, and the storage-weighted user count from the whitepaper, which is the real defence against funded sybils.</p>
 
   <h2>8. The real-world companion: Bitcoin</h2>
   <p>Bitcoin is the natural fixed-supply test case for the shrinking-transaction claim. <a href="bitcoin.html">The Bitcoin demonstration</a> rebuilds the whitepaper's chart from public chain data, corrects it for minted coins, and shows where the average-transaction-size gauge held and where it broke. <a href="chains.html">The multi-chain page</a> repeats the test on Litecoin, Dogecoin, Bitcoin Cash and Ethereum using the median transaction, which is where the whitepaper's assumption actually holds.</p>
@@ -359,12 +360,13 @@ python -m venv .venv && .venv/Scripts/pip install -e ".[dev]" matplotlib
 
   // ---- 7. round two
   if (R.shocks_v2) {
-    const V2 = { null: C.null, anchored: C.anchored, size: C.trend2, flow: C.trend };
-    const V2L = { null: 'No controller', anchored: 'Round one: anchored average', size: 'Median size, supply-sized, capped', flow: 'Flow per holder, supply-sized, capped' };
-    const v2order = ['null', 'anchored', 'size', 'flow'];
-    const SHORT2 = { null: 'none', anchored: 'round one', size: 'size', flow: 'flow' };
+    const V2 = { null: C.null, size: C.trend2, flow: C.trend, hybrid: C.anchored };
+    const V2L = { null: 'No controller', anchored: 'Round one: anchored average', size: 'Median size, supply-sized, capped', flow: 'Flow per holder, supply-sized, capped', hybrid: 'Hybrid: median size, flow-decomposed steps' };
+    const v2order = ['null', 'size', 'flow', 'hybrid'];
+    const v2table = ['null', 'anchored', 'size', 'flow', 'hybrid'];
+    const SHORT2 = { null: 'none', anchored: 'round one', size: 'size', flow: 'flow', hybrid: 'hybrid' };
     const vg = document.getElementById('v2-grid');
-    const panels = R.shocks_v2.concat(R.attacks);
+    const panels = R.shocks_v2.concat(R.attacks, R.combos || []);
     for (const panel of panels) {
       const card = document.createElement('div'); card.className = 'card';
       const h = text(document.createElement('h3'), panel.label);
@@ -377,13 +379,15 @@ python -m venv .venv && .venv/Scripts/pip install -e ".[dev]" matplotlib
       lineChart(canvas, v2order.map(p => ({ label: V2L[p], data: toXY(panel.runs[p].series, 'price_rel'), borderColor: V2[p], backgroundColor: V2[p] })),
         { shockStep: panel.shock_step, yMin: 0.3, yMax: 2.2, yTitle: 'price level (pre-shock = 1)' });
     }
-    table(document.getElementById('v2-table'), ['Case', ...v2order.map(p => V2L[p] + ' drift'), 'Size recovery', 'Flow recovery', 'Round one attacker gain / stake', 'Size attacker gain', 'Flow attacker gain'],
-      panels.map(s => [s.label, ...v2order.map(p => fmtPct(s.runs[p].drift_pct)),
+    table(document.getElementById('v2-table'), ['Case', ...v2table.map(p => V2L[p] + ' drift'), 'Size recovery', 'Flow recovery', 'Hybrid recovery', 'Round one attacker gain / stake', 'Size attacker gain', 'Flow attacker gain', 'Hybrid attacker gain'],
+      panels.map(s => [s.label, ...v2table.map(p => fmtPct(s.runs[p].drift_pct)),
         s.runs.size.recovery_steps == null ? 'none' : String(s.runs.size.recovery_steps),
         s.runs.flow.recovery_steps == null ? 'none' : String(s.runs.flow.recovery_steps),
+        s.runs.hybrid.recovery_steps == null ? 'none' : String(s.runs.hybrid.recovery_steps),
         s.runs.anchored.attacker_stake ? Math.round(s.runs.anchored.attacker_gain) + ' / ' + Math.round(s.runs.anchored.attacker_stake) : '-',
         s.runs.size.attacker_stake ? String(Math.round(s.runs.size.attacker_gain)) : '-',
-        s.runs.flow.attacker_stake ? String(Math.round(s.runs.flow.attacker_gain)) : '-']));
+        s.runs.flow.attacker_stake ? String(Math.round(s.runs.flow.attacker_gain)) : '-',
+        s.runs.hybrid.attacker_stake ? String(Math.round(s.runs.hybrid.attacker_gain)) : '-']));
 
     table(document.getElementById('variants-table'), ['Variant', 'Wash: drift', 'Wash: attacker gain', 'Sybil: drift', 'Sybil: attacker gain', 'Granularity x2: drift'],
       R.variants.map(v => [v.label, fmtPct(v.wash.drift_pct), String(Math.round(v.wash.attacker_gain)), fmtPct(v.sybil.drift_pct), String(Math.round(v.sybil.attacker_gain)), fmtPct(v.granularity_up.drift_pct)]));
@@ -416,6 +420,7 @@ python -m venv .venv && .venv/Scripts/pip install -e ".[dev]" matplotlib
         { label: 'flow rule, steady growth', data: ga.map(g => g.flow_growth_drift_pct), borderColor: C.trend, backgroundColor: C.trend, pointRadius: 4, pointBorderColor: C.surface, pointBorderWidth: 2 },
         { label: 'flow rule, no growth', data: ga.map(g => g.flow_no_growth_drift_pct), borderColor: C.trend, backgroundColor: C.trend, borderDash: [5, 4], pointRadius: 4, pointBorderColor: C.surface, pointBorderWidth: 2 },
         { label: 'median-size rule, steady growth', data: ga.map(g => g.size_growth_drift_pct), borderColor: C.trend2, backgroundColor: C.trend2, pointRadius: 0 },
+        { label: 'hybrid rule, steady growth', data: ga.map(g => g.hybrid_growth_drift_pct), borderColor: C.anchored, backgroundColor: C.anchored, borderDash: [2, 3], pointRadius: 0 },
         { label: 'no controller, steady growth', data: ga.map(g => g.null_growth_drift_pct), borderColor: C.null, backgroundColor: C.null, pointRadius: 0 } ] },
       options: { responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
@@ -423,8 +428,8 @@ python -m venv .venv && .venv/Scripts/pip install -e ".[dev]" matplotlib
                    tooltip: { callbacks: { label: (i) => ' ' + i.dataset.label + ': ' + fmtPct(i.parsed.y) } } },
         scales: { x: xAxis('allowance: anchor growth per period'), y: yAxis('price level change, %', { ticks: { ...axisBase.ticks, callback: (v) => (v > 0 ? '+' : '') + v + '%' } }) } }
     });
-    table(document.getElementById('growth-table'), ['Allowance per period', 'Flow rule, steady growth', 'Flow rule, no growth', 'Median-size rule, steady growth', 'No controller, steady growth'],
-      ga.map(g => [(g.growth_per_period * 100).toFixed(2) + '%', fmtPct(g.flow_growth_drift_pct), fmtPct(g.flow_no_growth_drift_pct), fmtPct(g.size_growth_drift_pct), fmtPct(g.null_growth_drift_pct)]));
+    table(document.getElementById('growth-table'), ['Allowance per period', 'Flow rule, steady growth', 'Flow rule, no growth', 'Median-size rule, steady growth', 'Hybrid rule, steady growth', 'No controller, steady growth'],
+      ga.map(g => [(g.growth_per_period * 100).toFixed(2) + '%', fmtPct(g.flow_growth_drift_pct), fmtPct(g.flow_no_growth_drift_pct), fmtPct(g.size_growth_drift_pct), fmtPct(g.hybrid_growth_drift_pct), fmtPct(g.null_growth_drift_pct)]));
   }
 })();
 </script>
