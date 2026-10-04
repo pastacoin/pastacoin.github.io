@@ -1,45 +1,197 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PastaCoin Web Prototype</title>
-  <link rel="stylesheet" href="css/styles.css" />
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    header { background: #2e3a46; color: #fff; padding: 1rem; text-align: center; }
-    nav { background: #415465; color: #fff; padding: 0.5rem; display: flex; gap: 1rem; justify-content: center; }
-    nav a { color: #fff; text-decoration: none; }
-    #disclaimer { background: #ffc107; padding: 0.5rem; text-align: center; }
-    section { padding: 1rem; }
-  </style>
-  <script>
-    // Allow API base override via ?api=https://example.com
-    const params = new URLSearchParams(window.location.search);
-    window.API_BASE = params.get('api') || 'https://pastacoin.onrender.com';
-  </script>
-  <base href="/prototype/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PaStaCoin prototype wallet</title>
+<meta name="description" content="A browser wallet for the PaSta prototype chain. Keys stay in your browser. Test coins only.">
+<link rel="icon" href="https://avatars.githubusercontent.com/u/198161947?s=64&v=4">
+<link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <header>
-    <h1>PastaCoin Web Prototype</h1>
-  </header>
-  <div id="disclaimer">
-    This is an early prototype. The blockchain is reset frequently; transactions and balances are <strong>not permanent</strong>.
+<nav><div class="wrap">
+  <a href="/"><img src="https://avatars.githubusercontent.com/u/198161947?s=200&v=4" alt="PaStaCoin logo"></a>
+  <a href="/" class="brand">PaStaCoin</a>
+  <span class="crumb">/ prototype wallet</span>
+</div></nav>
+
+<main><div class="wrap">
+  <h1>Prototype wallet</h1>
+  <p class="lead">Move test coins between accounts on the PaSta prototype chain and watch the network confirm them.</p>
+
+  <div class="callout bad">
+    <p><strong>Don't buy pastacoin.</strong> There is nothing to buy: this is a test chain, its coins have no value, and it can be reset at any time. It exists to try the idea out, not as an investment.</p>
   </div>
-  <nav>
-    <a href="#wallet">Wallet</a>
-    <a href="#create">Create Tx</a>
-    <a href="#validateB">Validate (State B)</a>
-    <a href="#validateC">Confirm (State C)</a>
-    <a href="#mempool">Mempool</a>
-    <a href="#blockchain">Blockchain</a>
-  </nav>
 
-  <main id="app">
-    <!-- Dynamic content renders here -->
-  </main>
+  <div class="card conn" id="conn" aria-live="polite">
+    <span><span class="dot" id="conn-dot"></span><span id="conn-text">Connecting…</span></span>
+    <span class="where">Node: <code id="conn-url"></code></span>
+    <span class="spacer"></span>
+    <button class="quiet small" id="btn-verify" type="button">Check the chain</button>
+    <button class="quiet small" id="btn-node" type="button">Change node</button>
+  </div>
+  <div class="msg" id="conn-msg" role="status"></div>
+  <div class="callout bad" id="offline-help" hidden>
+    <p><strong>No node is answering at that address.</strong> This wallet needs a PaSta node to talk to. To run one on this computer:</p>
+    <pre>git clone https://github.com/pastacoin/pastacoin
+cd pastacoin
+pip install -e .
+python node.py --storage chain.json</pre>
+    <p>A new chain writes <code>genesis-wallet.json</code> next to the chain file. Import it here to hold the first 10 PASTA. If your node runs somewhere else, use “Change node”.</p>
+  </div>
 
-  <script type="module" src="js/app.js"></script>
+  <div class="cols">
+    <div>
+      <section class="card" id="wallet-card" aria-labelledby="wallet-h">
+        <h3 id="wallet-h">Your wallet</h3>
+        <div id="wallet-empty">
+          <p class="sub" style="margin-top:0">A wallet is a key pair made in this browser. The private key never leaves it.</p>
+          <div class="row">
+            <button class="primary" id="btn-new-first" type="button">Create a wallet</button>
+            <button id="btn-import-first" type="button">Import a wallet</button>
+          </div>
+        </div>
+        <div id="wallet-full" hidden>
+          <div class="wallet-head">
+            <select id="wallet-select" aria-label="Active wallet"></select>
+            <button class="quiet small" id="btn-manage" type="button">Back up</button>
+          </div>
+          <div class="balance"><span id="balance">–</span><span class="unit">PASTA</span></div>
+          <div class="small" id="balance-note"></div>
+          <div class="address">
+            <code id="address"></code>
+            <button class="quiet small" id="btn-copy" type="button">Copy</button>
+          </div>
+          <div class="small">This is your address. Give it to someone so they can pay you.</div>
+          <div class="row" style="margin-top:12px">
+            <button class="quiet small" id="btn-new" type="button">New wallet</button>
+            <button class="quiet small" id="btn-import" type="button">Import</button>
+          </div>
+        </div>
+        <div class="msg" id="wallet-msg" role="status"></div>
+      </section>
+
+      <section class="card" id="send-card" aria-labelledby="send-h">
+        <h3 id="send-h">Send</h3>
+        <form id="send-form" autocomplete="off">
+          <label for="send-to">To (address)</label>
+          <input type="text" id="send-to" spellcheck="false" autocapitalize="off" placeholder="Paste the receiver's address">
+          <label for="send-amount">Amount (PASTA)</label>
+          <input type="text" id="send-amount" inputmode="decimal" placeholder="0.5">
+          <div class="field-note" id="send-available"></div>
+          <div class="row" style="margin-top:14px">
+            <button class="primary" id="btn-send" type="submit">Send</button>
+          </div>
+        </form>
+        <div class="msg" id="send-msg" role="status"></div>
+      </section>
+    </div>
+
+    <div>
+      <section class="card" aria-labelledby="mine-h">
+        <h3 id="mine-h">Your payments</h3>
+        <p class="sub">A payment is final after three steps: you send it, you validate someone else's, someone else confirms yours.</p>
+        <ul class="list" id="mine-list"></ul>
+      </section>
+
+      <section class="card" aria-labelledby="help-h">
+        <h3 id="help-h">Help confirm</h3>
+        <p class="sub">These are waiting for someone other than their sender. Confirming one costs you nothing and does the proof-of-work on the node.</p>
+        <ul class="list" id="help-list"></ul>
+        <div class="msg" id="help-msg" role="status"></div>
+      </section>
+    </div>
+  </div>
+
+  <h2>Activity</h2>
+  <p>The newest blocks on the chain. One block is one transaction. Coins the stability rule minted into a payment (or burned from it) are shown next to it.</p>
+  <div class="card">
+    <label class="check"><input type="checkbox" id="feed-all"> Also show validation-only blocks</label>
+    <div class="table-scroll">
+      <table id="feed">
+        <thead><tr><th>#</th><th class="l">From</th><th class="l">To</th><th>Amount</th><th class="wide-only">Mint / burn</th><th class="l wide-only">Confirmed by</th></tr></thead>
+        <tbody id="feed-body"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="feed-empty" hidden>No blocks yet.</p>
+    <p class="small" id="feed-more"></p>
+  </div>
+
+  <h2>The network</h2>
+  <p>Nobody is given coins except the 10 PASTA in the first block. Everything else is minted, or burned, by a rule that watches the size of a typical payment and nudges the supply so that size stays at its target.</p>
+  <div class="kpis" id="kpis"></div>
+  <p class="small" id="net-note"></p>
+
+  <h2>How a payment becomes final</h2>
+  <p>PaSta has no miners. The people making payments validate each other's:</p>
+  <ol>
+    <li><strong>You send.</strong> Your wallet signs the payment and the node holds it as pending.</li>
+    <li><strong>You validate someone else's.</strong> To earn the right to be confirmed, your payment first confirms another waiting payment from a different sender. This page does that for you as soon as one is available.</li>
+    <li><strong>Someone else confirms yours.</strong> The next person to send or to press “Confirm” finalizes your payment and it joins the chain. Only then does the money move.</li>
+  </ol>
+  <p>So a quiet chain is a slow chain: if nobody else is around, your payment waits. To try it alone, make a second wallet and use “Confirm” from it. The rules are written down in the <a href="https://github.com/pastacoin/pastacoin/blob/main/docs/SPEC.md">specification</a>; what the stability rule can and cannot do is on the <a href="/results/">simulation results</a> page.</p>
+</div></main>
+
+<footer>PaStaCoin · <a href="https://github.com/pastacoin">source on GitHub</a> · keys stay in your browser</footer>
+
+<!-- dialogs -->
+<dialog id="dlg-new">
+  <h3>New wallet</h3>
+  <label for="new-name">Name (only you see it)</label>
+  <input type="text" id="new-name" maxlength="40" placeholder="Main">
+  <p class="small">The key is created in this browser and stored only here. If you clear this browser's data, the wallet is gone unless you backed it up.</p>
+  <div class="actions">
+    <button type="button" class="quiet" data-close>Cancel</button>
+    <button type="button" class="primary" id="new-ok">Create</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-import">
+  <h3>Import a wallet</h3>
+  <label for="import-name">Name (only you see it)</label>
+  <input type="text" id="import-name" maxlength="40" placeholder="Genesis">
+  <label for="import-text">Private key, or the contents of a wallet file</label>
+  <textarea id="import-text" spellcheck="false" autocapitalize="off" placeholder='A private key, or {"private_key": "…", "public_key": "…"}'></textarea>
+  <label for="import-file">…or choose a wallet file (for example genesis-wallet.json)</label>
+  <input type="file" id="import-file" accept=".json,application/json,text/plain">
+  <div class="msg" id="import-msg" role="status"></div>
+  <div class="actions">
+    <button type="button" class="quiet" data-close>Cancel</button>
+    <button type="button" class="primary" id="import-ok">Import</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-manage">
+  <h3>Back up <span id="manage-name"></span></h3>
+  <p class="small">Whoever has the private key controls the coins. This page cannot recover it for you.</p>
+  <label>Address</label>
+  <div class="secret"><code id="manage-address"></code></div>
+  <label>Private key</label>
+  <div class="secret"><code id="manage-key">••••••••••••••••</code><button type="button" class="quiet small" id="manage-show">Show</button></div>
+  <div class="actions" style="justify-content:space-between">
+    <button type="button" class="danger" id="manage-remove">Remove from this browser</button>
+    <span class="row">
+      <button type="button" id="manage-download">Download backup file</button>
+      <button type="button" class="quiet" data-close>Done</button>
+    </span>
+  </div>
+  <div class="msg" id="manage-msg" role="status"></div>
+</dialog>
+
+<dialog id="dlg-node">
+  <h3>Node address</h3>
+  <p class="small">The wallet reads the chain from, and sends transactions to, one PaSta node.</p>
+  <label for="node-url">URL</label>
+  <input type="url" id="node-url" spellcheck="false" placeholder="http://localhost:5000">
+  <div class="actions" style="justify-content:space-between">
+    <button type="button" class="quiet" id="node-default">Use the default</button>
+    <span class="row">
+      <button type="button" class="quiet" data-close>Cancel</button>
+      <button type="button" class="primary" id="node-ok">Connect</button>
+    </span>
+  </div>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
 </body>
-</html> 
+</html>
