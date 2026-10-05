@@ -130,9 +130,12 @@ python node.py --storage chain.json</pre>
     <li><strong>Someone else confirms yours.</strong> The next person to send or to press “Confirm” finalizes your payment and it joins the chain. Only then does the money move.</li>
   </ol>
   <p>So a quiet chain is a slow chain: if nobody else is around, your payment waits. To try it alone, make a second wallet and use “Confirm” from it. The rules are written down in the <a href="https://github.com/pastacoin/pastacoin/blob/main/docs/SPEC.md">specification</a>; what the stability rule can and cannot do is on the <a href="/results/">simulation results</a> page.</p>
+
+  <h2>Run a node on your computer</h2>
+  <p>This page trusts the node it talks to. The desktop program does not have to: it keeps its own copy of the chain and checks every block itself, with the same wallets (back one up here, import it there). <a href="https://github.com/pastacoin/pastacoin/releases/latest/download/PastaMachine.exe">Download The Pasta Machine for Windows</a>; it is built from source by GitHub and is not code-signed, so Windows will warn before running it (<a href="https://github.com/pastacoin/pastacoin/releases/latest">release notes and checksum</a>). On other systems, run it <a href="https://github.com/pastacoin/pastacoin#quick-start">from source</a>.</p>
 </div></main>
 
-<footer>PaStaCoin · <a href="https://github.com/pastacoin">source on GitHub</a> · keys stay in your browser</footer>
+<footer>PaStaCoin · <a href="https://github.com/pastacoin">source on GitHub</a> · keys stay in your browser · <a href="/">home</a></footer>
 
 <!-- dialogs -->
 <dialog id="dlg-new">
