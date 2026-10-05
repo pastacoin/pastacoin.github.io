@@ -32,12 +32,12 @@
   </div>
   <div class="msg" id="conn-msg" role="status"></div>
   <div class="callout bad" id="offline-help" hidden>
-    <p><strong>No node is answering at that address.</strong> This wallet needs a PaSta node to talk to. To run one on this computer:</p>
+    <p><strong>No node is answering at that address.</strong> This wallet needs a PaSta node to talk to. The project's public node, <code>https://seed.pastacoin.org</code>, is the default: “Change node”, then “Use the default”, goes back to it. To run your own on this computer instead:</p>
     <pre>git clone https://github.com/pastacoin/pastacoin
 cd pastacoin
 pip install -e .
 python node.py --storage chain.json</pre>
-    <p>A new chain writes <code>genesis-wallet.json</code> next to the chain file. Import it here to hold the first 10 PASTA. If your node runs somewhere else, use “Change node”.</p>
+    <p>A new chain writes <code>genesis-wallet.json</code> next to the chain file. Import it here to hold the first 10 PASTA, and point this page at it with “Change node” (<code>http://localhost:5000</code>).</p>
   </div>
 
   <div class="cols">
@@ -182,7 +182,7 @@ python node.py --storage chain.json</pre>
   <h3>Node address</h3>
   <p class="small">The wallet reads the chain from, and sends transactions to, one PaSta node.</p>
   <label for="node-url">URL</label>
-  <input type="url" id="node-url" spellcheck="false" placeholder="http://localhost:5000">
+  <input type="url" id="node-url" spellcheck="false" placeholder="https://seed.pastacoin.org">
   <div class="actions" style="justify-content:space-between">
     <button type="button" class="quiet" id="node-default">Use the default</button>
     <span class="row">

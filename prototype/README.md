@@ -15,10 +15,10 @@ HTML, CSS and JavaScript modules; no build step.
 One PaSta node, over the REST API in `docs/SPEC.md` section 10 of `pastacoin/pastacoin`
 (integer base units, mint set at finalization: the API as of the launch mint rule).
 
-The node address is one constant, `DEFAULT_NODE` at the top of `js/app.js`, currently
-`http://localhost:5000`. Change it to the public seed when one exists. A visitor can override
-it with `?node=https://…` or the “Change node” button; the choice is remembered in the
-browser.
+The node address is one constant, `DEFAULT_NODE` at the top of `js/app.js`: the project's
+public seed, `https://seed.pastacoin.org`. A visitor can override it with `?node=https://…`
+(for example `?node=http://localhost:5000` for a node on their own machine) or the “Change
+node” button; the choice is remembered in the browser.
 
 When the page is served over HTTPS and the node is `http://localhost`, the browser treats it
 as a request to the local network: Chrome asks the visitor for permission, and Safari refuses.

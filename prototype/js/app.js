@@ -8,7 +8,7 @@ import {
 
 // The node this page talks to unless the visitor chooses another (?node=... or "Change node").
 // Change this one line to https://seed.pastacoin.org once the public seed node exists.
-const DEFAULT_NODE = "http://localhost:5000";
+const DEFAULT_NODE = "https://seed.pastacoin.org";
 
 const POLL_MS = 3000;
 const FEED_ROWS = 30;
